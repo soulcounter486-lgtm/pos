@@ -1,1 +1,1 @@
-{"buildCommand":"npm run build","outputDirectory":".next/static"}
+{\n  \"buildCommand\": \"npm run build\",\n  \"outputDirectory\": \.next\n}
