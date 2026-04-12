@@ -7,6 +7,7 @@ import { setAuth } from '@/lib/auth';
 const credentials: Record<string, string> = {
   phocha: '1324',
   admin: '123456',
+  bep: '1324', // 주방 계정
 };
 
 export default function LoginPage() {
@@ -31,10 +32,29 @@ export default function LoginPage() {
       return;
     }
 
-    const role = userId === 'admin' ? 'admin' : 'staff';
-    setAuth(role, userId);
+    // 역할 결정: bep 은 kitchen, 나머지는 admin 또는 staff
+    let role: 'admin' | 'staff' | 'kitchen';
+    if (userId === 'bep') {
+      role = 'kitchen';
+    } else {
+      role = userId === 'admin' ? 'admin' : 'staff';
+    }
+    
+    // kitchen 은 localStorage, 나머지는 setAuth
+    if (role === 'kitchen') {
+      localStorage.setItem('auth', JSON.stringify({ role, username: userId }));
+    } else {
+      setAuth(role, userId);
+    }
+    
     setLoading(false);
-    router.push(role === 'admin' ? '/admin' : '/staff');
+    
+    // 역할별로 이동
+    if (role === 'kitchen') {
+      router.push('/kitchen/orders');
+    } else {
+      router.push(role === 'admin' ? '/admin' : '/staff');
+    }
   }
 
   return (
@@ -144,7 +164,7 @@ export default function LoginPage() {
             {/* Demo Accounts Info */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-xs text-gray-500 text-center mb-3">데모 계정</p>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-3 gap-3 text-xs">
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
                   <p className="font-medium text-gray-900">관리자</p>
                   <p className="text-gray-600">admin / 123456</p>
@@ -152,6 +172,10 @@ export default function LoginPage() {
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
                   <p className="font-medium text-gray-900">직원</p>
                   <p className="text-gray-600">phocha / 1324</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <p className="font-medium text-gray-900">주방</p>
+                  <p className="text-gray-600">bep / 1324</p>
                 </div>
               </div>
             </div>
