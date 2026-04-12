@@ -51,9 +51,9 @@ export default function LoginPage() {
     
     // 역할별로 이동
     if (role === 'kitchen') {
-      router.push('/kitchen/orders');
+      router.replace('/kitchen/orders');
     } else {
-      router.push(role === 'admin' ? '/admin' : '/staff');
+      router.replace(role === 'admin' ? '/admin' : '/staff');
     }
   }
 
