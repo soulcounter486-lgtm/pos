@@ -56,7 +56,7 @@ export default function StaffPos() {
     if (selectedTable) {
       window.history.pushState(null, '', window.location.href);
     }
-  }, [selectedTable, showOrderList]);
+  }, []);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
