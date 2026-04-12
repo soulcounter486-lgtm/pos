@@ -358,7 +358,7 @@ export default function StaffPos() {
                   key={table.id}
                   onClick={() => {
                     setSelectedTable(tableIdStr);
-                    setShowOrderList(false); // 바로 메뉴 주문 페이지
+                    setShowOrderList(true); // 항상 주문내역 먼저
                   }}
                   className={`p-6 rounded-xl border-2 transition-all hover:scale-105 relative ${
                     hasPending
