@@ -52,11 +52,7 @@ export default function StaffPos() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => {
-    if (selectedTable) {
-      window.history.pushState(null, '', window.location.href);
-    }
-  }, []);
+
 
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
