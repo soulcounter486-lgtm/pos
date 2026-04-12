@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAuth } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabaseClient';
 
 type Product = {
