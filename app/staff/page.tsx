@@ -13,14 +13,6 @@ export default function StaffPage() {
     router.push('/login');
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-lg">로딩 중...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
