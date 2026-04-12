@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getAuth } from '@/lib/auth';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabaseClient';
 
 type Product = {
@@ -42,17 +41,8 @@ type OrderItemData = {
 
 export default function StaffPos() {
   const router = useRouter();
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setSelectedTable(null);
-      setShowOrderList(false);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -65,30 +55,39 @@ export default function StaffPos() {
   const [message, setMessage] = useState<string | null>(null);
   const [allOrders, setAllOrders] = useState<OrderData[]>([]);
   const [allOrderItems, setAllOrderItems] = useState<OrderItemData[]>([]);
-  const [showOrderList, setShowOrderList] = useState(false);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const taxRate = 0.1;
+
+  // URL params에서 상태 동기화
+  useEffect(() => {
+    const table = searchParams.get('table');
+    const view = searchParams.get('view') || 'orders';
+
+    if (table) {
+      setSelectedTable(table);
+    } else {
+      setSelectedTable(null);
+    }
+
+    if (view === 'menu') {
+      // 메뉴 뷰는 showOrderList false와 동등
+    } else {
+      // orders 뷰
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadAllData();
   }, []);
 
   useEffect(() => {
-    if (showOrderList || isOrderComplete) return;
-    const interval = setInterval(() => {
-      fetchOrders();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [showOrderList, isOrderComplete]);
-
-  useEffect(() => {
     if (isOrderComplete) {
       setIsOrderComplete(false);
-      setSelectedTable(null);
+      router.push('/staff');
       setMessage(null);
     }
-  }, [isOrderComplete]);
+  }, [isOrderComplete, router]);
 
   async function loadAllData() {
     await Promise.all([
@@ -145,7 +144,7 @@ export default function StaffPos() {
   }
 
   async function deleteAllOrdersForTable(tableId: string) {
-    if (!confirm('테이블 ' + tableId + '의 모든 주문을 삭제하시겠습니까?\n\n이 작업은 복구할 수 없습니다.')) {
+    if (!confirm('테이블 ' + tableId + '의 모든 주문을 삭제하시겠습니까?\\n\\n이 작업은 복구할 수 없습니다.')) {
       return;
     }
 
@@ -289,7 +288,7 @@ export default function StaffPos() {
       await fetchOrders();
 
       setTimeout(() => {
-        setSelectedTable(null);
+        router.push('/staff');
         setMessage(null);
       }, 2000);
 
@@ -347,6 +346,7 @@ export default function StaffPos() {
     );
   }
 
+  // 테이블 선택 화면 (!selectedTable)
   if (!selectedTable) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -372,8 +372,7 @@ export default function StaffPos() {
                 <button
                   key={table.id}
                   onClick={() => {
-                    setSelectedTable(tableIdStr);
-                    setShowOrderList(true); // 항상 주문내역 먼저
+                    router.push(`/staff?table=${tableIdStr}&view=orders`);
                   }}
                   className={`p-6 rounded-xl border-2 transition-all hover:scale-105 relative ${
                     hasPending
@@ -422,8 +421,9 @@ export default function StaffPos() {
     );
   }
 
-  // 주문내역 페이지
-  if (showOrderList) {
+  // 주문내역 페이지 (view=orders)
+  const view = searchParams.get('view') || 'orders';
+  if (view === 'orders') {
     const tableOrders = allOrders.filter((o: OrderData) => String(o.table_id) === selectedTable);
     return (
       <div className="flex flex-col h-screen bg-gray-50">
@@ -431,12 +431,10 @@ export default function StaffPos() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => {
-                  setShowOrderList(false);
-                }}
+                onClick={() => router.back()}
                 className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
               >
-                주문내역
+                뒤로가기
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">테이블 {selectedTable}</h1>
@@ -514,9 +512,9 @@ export default function StaffPos() {
         </main>
 
         <button 
-          onClick={() => setShowOrderList(false)}
+          onClick={() => router.push(`/staff?table=${selectedTable}&view=menu`)}
           className="fixed bottom-6 right-6 w-16 h-16 bg-green-500 hover:bg-green-600 text-white text-2xl rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center z-50"
-          title="새 주문 추가"
+          title="추가 주문"
         >
           +
         </button>
@@ -530,13 +528,13 @@ export default function StaffPos() {
     );
   }
 
-  // 메뉴 주문 페이지
+  // 메뉴 주문 페이지 (view=menu)
   return (
     <div className="flex flex-col h-screen bg-slate-100">
       <div className="bg-white p-4 shadow-sm">
         <div className="flex items-center mb-3">
           <button 
-            onClick={() => setShowOrderList(true)}
+            onClick={() => router.push(`/staff?table=${selectedTable}&view=orders`)}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm mr-4"
           >
             주문내역
