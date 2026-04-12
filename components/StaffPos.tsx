@@ -39,6 +39,19 @@ type OrderItemData = {
 };
 
 export default function StaffPos() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const { role } = getAuth();
+      if (role === 'staff') {
+        router.replace('/staff');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [router]);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
