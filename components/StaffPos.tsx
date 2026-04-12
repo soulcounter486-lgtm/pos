@@ -358,7 +358,7 @@ export default function StaffPos() {
                   key={table.id}
                   onClick={() => {
                     setSelectedTable(tableIdStr);
-                    setShowOrderList(true);
+                    setShowOrderList(false); // 바로 메뉴 주문 페이지
                   }}
                   className={`p-6 rounded-xl border-2 transition-all hover:scale-105 relative ${
                     hasPending
@@ -418,11 +418,10 @@ export default function StaffPos() {
               <button 
                 onClick={() => {
                   setShowOrderList(false);
-                  setSelectedTable(null);
                 }}
                 className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
               >
-                ← 테이블 선택
+                주문내역
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">테이블 {selectedTable}</h1>
