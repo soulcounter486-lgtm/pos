@@ -7,10 +7,6 @@ import StaffPos from '@/components/StaffPos';
 
 export default function StaffPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-
-  // Middleware가 auth 체크하므로 로컬 guard 제거
-  const [loading, setLoading] = useState(false);
 
   function handleLogout() {
     clearAuth();
