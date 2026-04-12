@@ -45,14 +45,18 @@ export default function StaffPos() {
 
   useEffect(() => {
     const handlePopState = () => {
-      const { role } = getAuth();
-      if (role === 'staff') {
-        router.replace('/staff');
-      }
+      setSelectedTable(null);
+      setShowOrderList(false);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    if (selectedTable) {
+      window.history.pushState(null, '', window.location.href);
+    }
+  }, [selectedTable, showOrderList]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
