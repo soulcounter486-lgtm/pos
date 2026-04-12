@@ -9,18 +9,8 @@ export default function StaffPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    function verifyStaff() {
-      const { role } = getAuth();
-      if (role !== 'staff') {
-        router.push('/login');
-        return;
-      }
-      setLoading(false);
-    }
-
-    verifyStaff();
-  }, [router]);
+  // Middleware가 auth 체크하므로 로컬 guard 제거
+  const [loading, setLoading] = useState(false);
 
   function handleLogout() {
     clearAuth();
