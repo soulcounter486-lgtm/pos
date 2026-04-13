@@ -127,11 +127,11 @@ export default function SalesHistory() {
                     <td className="px-4 py-4 text-slate-600">
                       {order.order_items.map((item) => (
                         <div key={item.id} className="mb-1">
-                          {item.quantity} x {item.unit_price.toLocaleString()}원
+                          {item.quantity} x {(item.unit_price || 0).toLocaleString()}원
                         </div>
                       ))}
                     </td>
-                    <td className="px-4 py-4 text-slate-900">{order.total.toLocaleString()}원</td>
+                    <td className="px-4 py-4 text-slate-900">{(order.total || 0).toLocaleString()}원</td>
                     <td className="px-4 py-4 text-slate-600">{order.status}</td>
                   </tr>
                 ))}

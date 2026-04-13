@@ -1,53 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabaseClient';
 
-type Product = {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  barcode?: string;
-  stock: number;
-  image_url?: string;
-};
-
+type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string };
 type CartItem = Product & { quantity: number };
-
-type Table = {
-  id: string;
-  name: string;
-  status: string;
-};
-
-type OrderData = {
-  id: string;
-  table_id: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-};
-
-type OrderItemData = {
-  id: string;
-  order_id: string;
-  product_id: string;
-  quantity: number;
-  price: number;
-  status: string;
-};
+type Table = { id: string; name: string; status: string };
+type OrderData = { id: string; table_id: string; total_amount: number; status: string; created_at: string };
+type OrderItemData = { id: string; order_id: string; product_id: string; quantity: number; price: number; status: string };
 
 export default function StaffPos() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
@@ -55,281 +21,281 @@ export default function StaffPos() {
   const [message, setMessage] = useState<string | null>(null);
   const [allOrders, setAllOrders] = useState<OrderData[]>([]);
   const [allOrderItems, setAllOrderItems] = useState<OrderItemData[]>([]);
+  const [currentView, setCurrentView] = useState<'orders' | 'menu'>('orders');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const taxRate = 0.1;
 
-  // URL params에서 상태 동기화
+  // 뒤로가기 처리
   useEffect(() => {
-    const table = searchParams.get('table');
-    const view = searchParams.get('view') || 'orders';
-
-    if (table) {
-      setSelectedTable(table);
-    } else {
-      setSelectedTable(null);
+    if (!selectedTable) {
+      window.history.replaceState({ main: true }, '', window.location.href);
     }
+    const onPop = () => {
+      if (selectedTable) {
+        setSelectedTable(null); setCurrentView('orders'); setPendingOrders([]); setShowPaymentModal(false);
+      } else {
+        window.history.pushState({ main: true }, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [selectedTable]);
 
-    if (view === 'menu') {
-      // 메뉴 뷰는 showOrderList false와 동등
-    } else {
-      // orders 뷰
-    }
-  }, [searchParams]);
-
+  useEffect(() => { loadAllData(); }, []);
   useEffect(() => {
-    loadAllData();
-  }, []);
+    if (isOrderComplete) { setIsOrderComplete(false); setSelectedTable(null); setMessage(null); }
+  }, [isOrderComplete]);
 
-  useEffect(() => {
-    if (isOrderComplete) {
-      setIsOrderComplete(false);
-      router.push('/staff');
-      setMessage(null);
-    }
-  }, [isOrderComplete, router]);
-
-  async function loadAllData() {
-    await Promise.all([
-      fetchProducts(),
-      fetchTables(),
-      fetchOrders()
-    ]);
-    setDataLoaded(true);
-    console.log('All data loaded');
-  }
-
+  async function loadAllData() { await Promise.all([fetchProducts(), fetchTables(), fetchOrders()]); setDataLoaded(true); }
   async function fetchProducts() {
     setLoading(true);
-    try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase.from('products').select('*').order('name');
-      if (error) throw error;
-      setProducts(data || []);
-    } catch (e) {
-      setMessage('상품 목록을 불러오지 못했습니다.');
-    }
+    try { const s = getSupabase(); const { data, error } = await s.from('products').select('*').order('name'); if (error) throw error; setProducts(data || []); }
+    catch (e) { setMessage('상품 목록을 불러오지 못했습니다.'); }
     setLoading(false);
   }
-
   async function fetchTables() {
     setLoadingTables(true);
-    try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase.from('tables').select('*');
-      if (error) throw error;
-      setTables(data || []);
-    } catch (e) {
-      console.error('Table error:', e);
-    }
+    try { const s = getSupabase(); const { data, error } = await s.from('tables').select('*'); if (error) throw error; setTables(data || []); }
+    catch (e) { console.error('Table error:', e); }
     setLoadingTables(false);
   }
-
   async function fetchOrders() {
     try {
-      const supabase = getSupabase();
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('*');
-      setAllOrders(orders || []);
-      setAllOrderItems(items || []);
-      console.log('Orders loaded:', orders?.length, 'Items loaded:', items?.length);
-    } catch (e) {
-      console.error('Orders error:', e);
-    }
+      const s = getSupabase();
+      const { data: orders } = await s.from('orders').select('*').order('created_at', { ascending: false });
+      const { data: items } = await s.from('order_items').select('*');
+      setAllOrders(orders || []); setAllOrderItems(items || []);
+    } catch (e) { console.error('Orders error:', e); }
+  }
+
+  function navigateTo(view: 'orders' | 'menu') {
+    setCurrentView(view);
+    window.history.pushState({ ts: selectedTable, view }, '', `/staff?table=${selectedTable}&view=${view}`);
+  }
+
+  function selectTable(tableId: string) {
+    const hasOrder = (tableOrderInfo[tableId]?.orders.length || 0) > 0;
+    const view = hasOrder ? 'orders' : 'menu';
+    window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
+    setSelectedTable(tableId); setCurrentView(view);
+  }
+
+  function goBack() {
+    setSelectedTable(null); setCurrentView('orders'); setPendingOrders([]); setShowPaymentModal(false);
+    window.history.replaceState({ main: true }, '', '/staff');
   }
 
   async function deleteAllOrdersForTable(tableId: string) {
-    if (!confirm('테이블 ' + tableId + '의 모든 주문을 삭제하시겠습니까?\\n\\n이 작업은 복구할 수 없습니다.')) {
-      return;
-    }
-
+    if (!confirm('테이블 ' + tableId + '의 모든 주문을 삭제하시겠습니까?')) return;
     setLoading(true);
     try {
-      const supabase = getSupabase();
-
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('table_id', tableId);
-
-      const orderIds = orders?.map((o: any) => o.id) || [];
-
-      if (orderIds.length > 0) {
-        await supabase
-          .from('order_items')
-          .delete()
-          .in('order_id', orderIds);
-      }
-
-      const { error: deleteError } = await supabase
-        .from('orders')
-        .delete()
-        .eq('table_id', tableId);
-
-      if (deleteError) throw deleteError;
-
-      setMessage('테이블 ' + tableId + ' 주문 ' + orderIds.length + '개가 삭제되었습니다!');
-      await fetchOrders();
-    } catch (error) {
-      console.error('Delete error:', error);
-      setMessage('삭제 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+      const s = getSupabase();
+      const { data: orders } = await s.from('orders').select('id').eq('table_id', tableId);
+      const ids = orders?.map((o: any) => o.id) || [];
+      if (ids.length > 0) await s.from('order_items').delete().in('order_id', ids);
+      const { error } = await s.from('orders').delete().eq('table_id', tableId);
+      if (error) throw error; setMessage('테이블 ' + tableId + ' 주문이 삭제되었습니다.'); await fetchOrders();
+    } catch (e) { setMessage('삭제 중 오류가 발생했습니다.'); }
+    finally { setLoading(false); }
   }
 
-  const tableOrderInfo: Record<string, { orders: OrderData[], totalAmount: number }> = useMemo(() => {
-    const info: Record<string, { orders: OrderData[], totalAmount: number }> = {};
-    
+  const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number }> = useMemo(() => {
+    const info: Record<string, { orders: OrderData[]; totalAmount: number }> = {};
     allOrders.forEach(order => {
       const key = String(order.table_id);
-      if (!info[key]) {
-        info[key] = { orders: [], totalAmount: 0 };
-      }
-      info[key].orders.push(order);
-      info[key].totalAmount += order.total_amount;
+      if (!info[key]) info[key] = { orders: [], totalAmount: 0 };
+      info[key].orders.push(order); info[key].totalAmount += order.total_amount;
     });
-
-    console.log('tableOrderInfo keys:', Object.keys(info));
-    
     return info;
   }, [allOrders]);
 
   function addToCart(product: Product) {
-    if (product.stock <= 0) {
-      setMessage('재고가 부족한 상품입니다.');
-      return;
-    }
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
-      if (existing.quantity < product.stock) {
-        setCart(cart.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
-            : item
-        ));
-      } else {
-        setMessage('재고가 부족합니다.');
-      }
-    } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
-    }
+    if (product.stock <= 0) { setMessage('재고가 부족합니다.'); return; }
+    const ex = cart.find(i => i.id === product.id);
+    if (ex) { if (ex.quantity < product.stock) setCart(cart.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)); else setMessage('재고가 부족합니다.'); }
+    else setCart([...cart, { ...product, quantity: 1 }]);
   }
-
   function updateQuantity(productId: string, delta: number) {
-    setCart(cart.map(item => {
-      if (item.id === productId) {
-        const newQuantity = item.quantity + delta;
-        if (newQuantity > 0 && newQuantity <= item.stock) {
-          return { ...item, quantity: newQuantity };
-        }
-      }
-      return item;
+    setCart(cart.map(i => {
+      if (i.id === productId) { const n = i.quantity + delta; if (n > 0 && n <= i.stock) return { ...i, quantity: n }; }
+      return i;
     }));
   }
-
-  function removeFromCart(productId: string) {
-    setCart(cart.filter(item => item.id !== productId));
-  }
+  function removeFromCart(productId: string) { setCart(cart.filter(i => i.id !== productId)); }
 
   async function submitOrder() {
-    if (cart.length === 0) {
-      setMessage('주문할 상품이 없습니다.');
-      return;
-    }
+    if (cart.length === 0) return;
+    const sub = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+    const tax = sub * 0.1; const total = sub + tax;
+    setLoading(true);
+    try {
+      const s = getSupabase();
+      const { data: od, error: oe } = await s.from('orders').insert({
+        table_id: selectedTable, total_amount: total, status: 'pending', payment_method: 'card', include_tax: true, subtotal: sub, tax_amount: tax
+      }).select().single();
+      if (oe) throw oe;
+      await s.from('order_items').insert(cart.map(i => ({ order_id: od.id, product_id: i.id, quantity: i.quantity, price: i.price, status: 'pending' })));
+      setCart([]); setMessage('주문이 완료되었습니다!'); await fetchOrders(); navigateTo('orders');
+    } catch (e) { setMessage('주문 처리 중 오류 발생'); }
+    finally { setLoading(false); }
+  }
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.1;
-    const total = subtotal + tax;
+  const cartTotal = useMemo(() => { const s = cart.reduce((a, i) => a + i.price * i.quantity, 0); return s + s * 0.1; }, [cart]);
+  const categories = useMemo(() => ['all', ...new Set(products.map(p => p.category))], [products]);
+  const filteredProducts = useMemo(() => {
+    let f = products;
+    if (selectedCategory !== 'all') f = f.filter(p => p.category === selectedCategory);
+    if (searchTerm) f = f.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return f;
+  }, [products, selectedCategory, searchTerm]);
+
+  function issueReceipt(orders: OrderData[]) {
+    if (orders.length === 0) return;
+    const total = orders.reduce((s, o) => s + o.total_amount, 0);
+    let r = '\n==============================\n         POS 가영수증\n==============================\n\n';
+    r += '테이블: ' + selectedTable + '\n시간: ' + new Date().toLocaleString('ko-KR') + '\n주문: ' + orders.length + '건\n\n------------------------------\n';
+    orders.forEach((o, i) => {
+      r += '\n[주문 ' + (i + 1) + ']\n';
+      allOrderItems.filter(x => x.order_id === o.id).forEach(item => {
+        const p = products.find(pr => pr.id === item.product_id);
+        r += '  ' + (p?.name || '상품') + ' x' + item.quantity + ' - ' + (item.price * item.quantity).toLocaleString() + ' VND\n';
+      });
+      r += '  소계: ' + o.total_amount.toLocaleString() + ' VND\n';
+    });
+    r += '\n------------------------------\n합계: ' + total.toLocaleString() + ' VND\n==============================\n';
+    alert(r);
+  }
+
+  async function completePayment(method: string) {
+    setShowPaymentModal(false);
+    const orders = pendingOrders;
+    const tableId = selectedTable;
+    if (!tableId || orders.length === 0) return;
+    const total = orders.reduce((s, o) => s + o.total_amount, 0);
+    const orderIds = orders.map(o => o.id);
 
     setLoading(true);
     try {
       const supabase = getSupabase();
 
-      const { data: orderData, error: orderError } = await supabase
+      // 1. 판매내역 저장 (실패해도 계속)
+      try {
+        const { data, error } = await supabase
+          .from('sales')
+          .insert({
+            table_id: String(tableId),
+            total_amount: total,
+            payment_method: method,
+            order_count: orders.length
+          });
+        console.log('Sales insert attempt completed');
+      } catch (e) {
+        console.error('Sales insert error:', e.message);
+        setMessage('판매내역 저장 실패');
+      }
+
+      // 2. 주문 상태 업데이트 (문자열 비교로 통일)
+      const { data: pendingOrders, error: pendingErr } = await supabase
         .from('orders')
-        .insert({
-          table_id: selectedTable,
-          total_amount: total,
-          status: 'pending',
-          payment_method: 'card',
-          include_tax: true,
-          subtotal: subtotal,
-          tax_amount: tax
-        })
-        .select()
+        .select('id')
+        .match({ table_id: String(tableId), status: 'pending' });
+      if (pendingErr) throw pendingErr;
+
+      if (pendingOrders && pendingOrders.length > 0) {
+        const ids = pendingOrders.map(o => o.id);
+        await supabase.from('orders').update({ status: 'completed', payment_method: method }).in('id', ids);
+      }
+
+      // 3. 주문 항목 완료
+      if (orderIds.length > 0) {
+        await supabase.from('order_items').update({ status: 'completed' }).in('order_id', orderIds);
+      }
+
+      // 4. 테이블 상태 초기화 (status 컬럼만 사용)
+      const { data: tableRecord, error: tableFetchErr } = await supabase
+        .from('tables')
+        .select('status')
+        .eq('id', String(tableId))
         .single();
 
-      if (orderError) throw orderError;
+      if (tableFetchErr) {
+        console.error('테이블 조회 실패:', tableFetchErr);
+        throw tableFetchErr;
+      }
 
-      const orderItemData = cart.map(item => ({
-        order_id: orderData.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        price: item.price,
-        status: 'pending'
-      }));
+      // 현재 상태 확인
+      const currentStatus: string | null = tableRecord ? tableRecord.status : null;
+      if (currentStatus === null) {
+        console.error('테이블 레코드가 없거나 status 컬럼이 없습니다.', tableRecord);
+        throw new Error('테이블 레코드 또는 status 컬럼 없음');
+      }
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItemData);
+      console.log('테이블 전 상태:', currentStatus);
 
-      if (itemsError) throw itemsError;
+      // 상태 업데이트 to "available"
+      const { data: tableUpdated, error: tableUpdateErr } = await supabase
+        .from('tables')
+        .update({ status: 'available' })
+        .eq('id', String(tableId))
+        .single();
 
-      setCart([]);
-      setMessage('주문이 완료되었습니다!');
-      setIsOrderComplete(true);
+      if (tableUpdateErr) {
+        console.error('테이블 상태 업데이트 실패:', tableUpdateErr);
+        throw tableUpdateErr;
+      }
+
+      console.log('테이블 후 상태:', (tableUpdated as any).status);
+
+      // 상태 업데이트
+      const updatePayload: any = {};
+      updatePayload[statusColumn] = 'available';
+      const { data: tableUpdated, error: tableUpdateErr } = await supabase
+        .from('tables')
+        .update(updatePayload)
+        .eq('id', String(tableId))
+        .single();
+
+      if (tableUpdateErr) {
+        console.error('테이블 상태 업데이트 실패:', tableUpdateErr);
+        throw tableUpdateErr;
+      }
+
+      console.log('테이블 후 상태:', tableUpdated[statusColumn]);
+
+      // 5. UI 업데이트
+      setSelectedTable(null);
+      setCurrentView('orders');
+      setPendingOrders([]);
+      setMessage('결제 완료!');
 
       await fetchOrders();
+      await fetchTables();
 
-      setTimeout(() => {
-        router.push('/staff');
-        setMessage(null);
-      }, 2000);
-
-    } catch (error) {
-      setLoading(false);
-      setMessage('주문 처리 중 오류 발생');
+      // 뒤로가기 방지용으로 URL 변경
+      window.history.replaceState({ main: true }, '', '/staff');
+    } catch (e) {
+      console.error('결제 에러:', e);
+      setSelectedTable(null);
+      setCurrentView('orders');
+      setPendingOrders([]);
+      setMessage('결제 오류: ' + (e.message || '알수없음'));
+      await fetchOrders();
+      await fetchTables();
+      window.history.replaceState({ main: true }, '', '/staff');
     }
+    finally { setLoading(false); }
   }
 
-  const cartTotal = useMemo(() => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.1;
-    return subtotal + tax;
-  }, [cart]);
-
-  const cartCount = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.quantity, 0);
-  }, [cart]);
-
-  const categories = useMemo(() => {
-    return ['all', ...new Set(products.map(p => p.category))];
-  }, [products]);
-
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(p => p.category === selectedCategory);
-    }
-    if (searchTerm) {
-      filtered = filtered.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    return filtered;
-  }, [products, selectedCategory, searchTerm]);
-
+  // ==================== 완료 화면 ====================
   if (isOrderComplete) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-white mb-2">주문 완료!</h2>
-          <p className="text-gray-400">테이블 선택 화면으로 돌아갑니다...</p>
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><span className="text-4xl">&#10003;</span></div>
+          <h2 className="text-2xl font-bold text-[#1F2937] mb-2">주문 완료</h2>
+          <p className="text-[#6B7280]">테이블 선택 화면으로 돌아갑니다...</p>
         </div>
       </div>
     );
@@ -337,302 +303,295 @@ export default function StaffPos() {
 
   if (!dataLoaded || loadingTables) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-white text-lg">로딩 중...</p>
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#6B7280]">로딩 중...</p>
         </div>
       </div>
     );
   }
 
-  // 테이블 선택 화면 (!selectedTable)
+  // ==================== 테이블 선택 ====================
   if (!selectedTable) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-          <h1 className="text-white font-semibold text-lg">POS 시스템</h1>
-          <p className="text-gray-400 text-sm">직원 모드 - 테이블 선택 ({allOrders.length} 주문)</p>
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-5 shadow-sm">
+          <h1 className="text-xl font-bold text-[#111827]">직원 POS</h1>
+          <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.length}건 활성 주문</p>
         </header>
-
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-            {tables.map(table => {
-              const tableIdStr = String(table.id);
-              const orderInfo = tableOrderInfo[tableIdStr];
-              const hasPending = orderInfo?.orders.some((o: OrderData) => o.status === 'pending');
-              const totalOrders = orderInfo?.orders.length || 0;
-              const pendingCount = orderInfo?.orders.filter((o: OrderData) => o.status === 'pending').length || 0;
-              const completedCount = totalOrders - pendingCount;
-              const totalAmount = orderInfo?.totalAmount || 0;
-
-              console.log('Table ' + tableIdStr + ': ' + (hasPending ? 'RED' : 'GREEN') + ', Orders: ' + totalOrders);
-
+        <main className="flex-1 p-4 lg:p-6 max-w-5xl mx-auto w-full">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+            {tables.sort((a, b) => Number(a.id) - Number(b.id)).map(table => {
+              const ts = String(table.id);
+              const oi = tableOrderInfo[ts];
+              const hasOrder = (oi?.orders.length || 0) > 0;
+              const totalOrders = oi?.orders.length || 0;
+              const pending = oi?.orders.filter(o => o.status === 'pending').length || 0;
+              const total = oi?.totalAmount || 0;
               return (
-                <button
-                  key={table.id}
-                  onClick={() => {
-                    router.push(`/staff?table=${tableIdStr}&view=orders`);
-                  }}
-                  className={`p-6 rounded-xl border-2 transition-all hover:scale-105 relative ${
-                    hasPending
-                      ? 'bg-red-50 border-red-400 hover:border-red-600'
-                      : 'bg-green-50 border-green-300 hover:border-green-500'
-                  }`}
-                >
-                  {totalAmount > 0 && (
-                    <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
-                      {totalAmount.toLocaleString()} VND
-                    </div>
-                  )}
-                  <div className="text-center">
-                    <div className="text-3xl mb-2">{hasPending ? '🔴' : '🟢'}</div>
-                    <h3 className="font-bold text-lg text-gray-900 mb-1">Table {table.id}</h3>
-                    <p className={`text-sm font-medium ${
-                      table.status === 'occupied' || hasPending ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {table.status === 'occupied' || hasPending ? '사용 중' : '사용 가능'}
-                    </p>
-                    {totalOrders > 0 && (
-                      <div className="mt-3 flex gap-2 justify-center">
-                        <div className="bg-blue-100 border border-blue-300 rounded-lg px-2 py-1 text-xs">전체: {totalOrders}</div>
-                        {pendingCount > 0 && (
-                          <div className="bg-yellow-100 border border-yellow-300 rounded-lg px-2 py-1 text-xs">대기: {pendingCount}</div>
-                        )}
-                        {completedCount > 0 && (
-                          <div className="bg-green-100 border border-green-300 rounded-lg px-2 py-1 text-xs">완료: {completedCount}</div>
-                        )}
-                      </div>
-                    )}
-                    {totalOrders === 0 && <p className="text-xs text-gray-400 mt-2">(주문 없음)</p>}
-                  </div>
+                <button key={table.id} onClick={() => selectTable(ts)}
+                  className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasOrder ? 'border-red-200' : 'border-gray-100')}>
+                  <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasOrder ? 'bg-red-400' : 'bg-green-400')}></div>
+                  <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.id}</div>
+                  <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasOrder ? 'text-red-500' : 'text-green-500')}>{hasOrder ? '사용 중' : '사용 가능'}</div>
+                  {total > 0 && (<div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">{total.toLocaleString()} VND</div>)}
+                  {totalOrders > 0 && (<div className="mt-2 lg:mt-3 flex gap-2"><span className="text-[10px] lg:text-xs text-gray-400">{totalOrders}건</span>{pending > 0 && <span className="text-[10px] lg:text-xs text-amber-500">{pending}건 대기</span>}</div>)}
                 </button>
               );
             })}
           </div>
         </main>
-
-        {message && (
-          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse">
-            {message}
-          </div>
-        )}
+        {message && (<div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
       </div>
     );
   }
 
-  // 주문내역 페이지 (view=orders)
-  const view = searchParams.get('view') || 'orders';
-  if (view === 'orders') {
-    const tableOrders = allOrders.filter((o: OrderData) => String(o.table_id) === selectedTable);
+  // ==================== 주문내역 ====================
+  if (currentView === 'orders') {
+    const tableOrders = allOrders.filter(o => String(o.table_id) === selectedTable);
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <header className="bg-white shadow-sm p-4 border-b">
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => router.back()}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
-              >
-                뒤로가기
+              <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">테이블 {selectedTable}</h1>
-                <p className="text-sm text-gray-500">주문 내역 ({tableOrders.length}개)</p>
+                <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+                <p className="text-[10px] lg:text-xs text-gray-400">주문내역 {tableOrders.length}건</p>
               </div>
             </div>
-            <button 
-              onClick={() => deleteAllOrdersForTable(selectedTable!)} 
-              disabled={loading || tableOrders.length === 0}
-              className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-bold text-sm"
-            >
-              전체 삭제
-            </button>
+            <button onClick={() => deleteAllOrdersForTable(selectedTable!)} disabled={tableOrders.length === 0}
+              className="text-xs lg:text-sm text-red-400 hover:text-red-500 disabled:opacity-40 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-red-50 transition-colors">전체삭제</button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        <main className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-2 lg:space-y-3 max-w-3xl mx-auto w-full">
           {tableOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-              <div className="text-6xl mb-4">📋</div>
-              <h2 className="text-2xl font-bold mb-2">주문 내역이 없습니다.</h2>
-              <p className="text-lg">새로운 주문을 추가해보세요.</p>
+            <div className="flex flex-col items-center justify-center py-16 text-gray-300">
+              <span className="text-5xl mb-3">&#128203;</span>
+              <p className="text-sm">주문 내역이 없습니다</p>
             </div>
           ) : (
-            tableOrders.map((order: OrderData) => (
-              <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold">주문 #{order.id.substring(order.id.length - 8)}</span>
-                      <span className={`ml-4 px-4 py-2 rounded-full text-sm font-bold ${
-                        order.status === 'pending' ? 'bg-yellow-400/20 backdrop-blur-sm' : 'bg-green-400/20 backdrop-blur-sm'
-                      }`}>
-                        {order.status === 'pending' ? '🟡 대기 중' : '✅ 완료'}
+            tableOrders.map(order => {
+              const items = allOrderItems.filter(i => i.order_id === order.id);
+              return (
+                <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-4 lg:px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={'text-xs px-2 lg:px-2.5 py-0.5 lg:py-1 rounded-full font-medium ' + (order.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600')}>
+                        {order.status === 'pending' ? '대기' : '완료'}
                       </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold">{order.total_amount.toLocaleString()} VND</p>
-                      <p className="text-sm opacity-90">{new Date(order.created_at).toLocaleString('ko-KR')}</p>
+                      <div className="text-sm font-bold text-[#111827]">{order.total_amount.toLocaleString()} VND</div>
+                      <div className="text-[10px] text-gray-400">{new Date(order.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
                   </div>
-                </div>
-                <div className="p-6">
-                  <h3 className="font-bold text-xl text-gray-800 mb-4">주문 항목</h3>
-                  <div className="space-y-3">
-                    {allOrderItems
-                      .filter((i: OrderItemData) => i.order_id === order.id)
-                      .map((item: OrderItemData) => {
-                        const product = products.find(p => p.id === item.product_id);
-                        return (
-                          <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div className="w-20 h-20 bg-slate-100 rounded-lg flex-shrink-0 overflow-hidden">
-                              {product?.image_url ? (
-                                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs font-medium">이미지 없음</div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-gray-900 text-sm truncate">{product?.name || 'Unknown'}</p>
-                              <p className="text-gray-500 text-xs">{product?.category || '미분류'}</p>
-                            </div>
-                            <div className="text-right min-w-[80px]">
-                              <p className="font-bold text-gray-900 text-lg">x {item.quantity}</p>
-                              <p className="text-gray-600 text-sm">{item.price.toLocaleString()} VND</p>
-                            </div>
+                  <div className="px-4 lg:px-5 pb-3 space-y-1 lg:space-y-1.5">
+                    {items.map(item => {
+                      const product = products.find(p => p.id === item.product_id);
+                      return (
+                        <div key={item.id} className="flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5">
+                          <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
                           </div>
-                        );
-                      })}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] lg:text-xs font-medium text-[#374151] truncate">{product?.name || 'Unknown'}</p>
+                            <p className="text-[9px] lg:text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
+                          </div>
+                          <span className="text-xs lg:text-sm font-semibold text-[#111827]">x{item.quantity}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </main>
 
-        <button 
-          onClick={() => router.push(`/staff?table=${selectedTable}&view=menu`)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-green-500 hover:bg-green-600 text-white text-2xl rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center z-50"
-          title="추가 주문"
-        >
-          +
-        </button>
+        <div className="bg-white border-t border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 flex gap-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]">
+          <button onClick={() => issueReceipt(tableOrders)} className="flex-1 bg-gray-50 hover:bg-gray-100 text-[#374151] py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">영수증</button>
+          <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }} disabled={tableOrders.length === 0}
+            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">결제</button>
+        </div>
 
-        {message && (
-          <div className="fixed bottom-24 right-6 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg max-w-sm">
-            {message}
+        <button onClick={() => navigateTo('menu')}
+          className="fixed bottom-20 lg:bottom-24 right-4 lg:right-6 w-12 h-12 lg:w-14 lg:h-14 bg-[#1F2937] hover:bg-[#111827] text-white text-xl lg:text-2xl rounded-full shadow-xl hover:scale-105 transition-all flex items-center justify-center z-40">+</button>
+
+        {showPaymentModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-[#111827]">결제 수단</h3>
+                <p className="text-sm text-gray-400">Table {selectedTable} &#183; {pendingOrders.reduce((s, o) => s + o.total_amount, 0).toLocaleString()} VND</p>
+              </div>
+              <div className="p-4 space-y-2">
+                {[
+                  { key: 'cash', icon: '\uD83D\uDCB5', name: '현금', sub: 'Cash' },
+                  { key: 'card', icon: '\uD83D\uDCB3', name: '카드', sub: 'Card' },
+                  { key: 'transfer', icon: '\uD83C\uDFE6', name: '이체', sub: 'Transfer' },
+                ].map(m => (
+                  <button key={m.key} onClick={() => completePayment(m.key)}
+                    className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
+                    <span className="text-2xl">{m.icon}</span>
+                    <div><p className="font-semibold text-[#111827]">{m.name}</p><p className="text-xs text-gray-400">{m.sub}</p></div>
+                  </button>
+                ))}
+              </div>
+              <div className="p-4 bg-gray-50 border-t border-gray-100">
+                <button onClick={() => { setShowPaymentModal(false); setPendingOrders([]); }}
+                  className="w-full text-gray-400 hover:text-[#374151] py-2 text-sm font-medium">취소</button>
+              </div>
+            </div>
           </div>
         )}
+
+        {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
     );
   }
 
-  // 메뉴 주문 페이지 (view=menu)
+  // ==================== 메뉴 주문 (반응형: PC 좌우분할 / 모바일 단일) ====================
   return (
-    <div className="flex flex-col h-screen bg-slate-100">
-      <div className="bg-white p-4 shadow-sm">
-        <div className="flex items-center mb-3">
-          <button 
-            onClick={() => router.push(`/staff?table=${selectedTable}&view=orders`)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm mr-4"
-          >
-            주문내역
-          </button>
-          <h1 className="text-xl font-bold text-slate-900">테이블 {selectedTable}</h1>
-        </div>
-        <div className="mb-3 flex gap-2">
-          <input
-            type="text"
-            placeholder="상품명 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {categories.map(category => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                selectedCategory === category ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              {category}
+    <div className="min-h-screen bg-[#F8F9FA] lg:flex lg:flex-row">
+      {/* ===== 왼쪽: 상품 영역 ===== */}
+      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0">
+        <header className="bg-white border-b border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 shadow-sm">
+          <div className="flex items-center justify-between mb-2 lg:mb-3">
+            <div className="flex items-center gap-2 lg:gap-3">
+              <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+            </div>
+            {/* 모바일 전용 주문내역 버튼 */}
+            <button onClick={() => navigateTo('orders')} className="text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors lg:hidden">
+              주문내역
             </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
-        {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-500">불러오는 중...</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {filteredProducts.map(product => (
-              <button
-                key={product.id}
-                onClick={() => addToCart(product)}
-                disabled={product.stock <= 0}
-                className={`bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col ${
-                  product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                }`}
-              >
-                <div className="w-full h-28 bg-slate-100 flex items-center justify-center">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-2" />
-                  ) : (
-                    <div className="text-slate-400 text-xs">없음</div>
-                  )}
-                </div>
-                <div className="flex-1 p-2">
-                  <h3 className="font-semibold text-gray-900 text-xs mb-1 line-clamp-2">{product.name}</h3>
-                  <p className="text-gray-500 text-xs mb-1">{product.category}</p>
-                  <p className="text-blue-600 font-bold text-sm">{product.price.toLocaleString()} VND</p>
-                </div>
+          </div>
+          <div className="mb-2 lg:mb-3">
+            <input type="text" placeholder="검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="w-full px-3 lg:px-4 py-2 lg:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-[#374151] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all" />
+          </div>
+          <div className="flex gap-1 lg:gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setSelectedCategory(cat)}
+                className={'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-medium whitespace-nowrap transition-all ' + (selectedCategory === cat ? 'bg-[#1F2937] text-white shadow-md' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50')}>
+                {cat === 'all' ? '전체' : cat}
               </button>
             ))}
           </div>
-        )}
-      </div>
+        </header>
 
-      <div className="bg-white border-t border-gray-200 p-4">
-        <div className="mb-4 max-h-48 overflow-y-auto">
-          {cart.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center">주문할 상품이 없습니다.</p>
+        <div className="flex-1 overflow-y-auto p-3 lg:p-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-gray-400">로딩 중...</div>
           ) : (
-            <div className="space-y-2">
-              {cart.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{item.name}</p>
-                    <p className="text-gray-500 text-xs">{item.price.toLocaleString()} VND</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 lg:gap-3">
+              {filteredProducts.map(product => (
+                <button key={product.id} onClick={() => addToCart(product)} disabled={product.stock <= 0}
+                  className={
+                    'bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden text-left ' +
+                    (product.stock <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:-translate-y-0.5')
+                  }>
+                  <div className="w-full aspect-square bg-gray-50 flex items-center justify-center p-2 lg:p-3">
+                    {product.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-xs text-gray-300">-</span>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-200 rounded hover:bg-gray-300 flex items-center justify-center">-</button>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center">+</button>
-                    <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center">×</button>
+                  <div className="p-2 lg:p-3">
+                    <p className="text-[11px] lg:text-sm font-semibold text-[#111827] leading-tight line-clamp-2 mb-0.5 lg:mb-1 min-h-[1.8rem] lg:min-h-[2.5rem]">{product.name}</p>
+                    <p className="text-[9px] lg:text-[10px] text-gray-400 mb-1 lg:mb-2">{product.category}</p>
+                    <p className="text-[11px] lg:text-sm font-bold text-blue-500">{product.price.toLocaleString()} VND</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-          <div>
-            <p className="text-gray-600 text-sm">총계: <span className="font-bold text-lg">{cartTotal.toLocaleString()} VND</span></p>
-            <p className="text-gray-500 text-xs">상품 {cartCount}개</p>
+      </div>
+
+      {/* ===== 오른쪽: 장바구니 (모바일 고정 하단 / PC sticky 사이드바) ===== */}
+      {/* 모바일용 하단 바 */}
+      <div className="bg-white border-t border-gray-100 px-3 lg:hidden lg:px-4 py-2.5 lg:py-3 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.06)] z-30 lg:z-0">
+        {cart.length > 0 ? (
+          <div className="space-y-1.5 mb-2 max-h-24 overflow-y-auto">
+            {cart.map(item => (
+              <div key={item.id} className="flex items-center justify-between py-1">
+                <div className="flex-1 min-w-0 mr-2">
+                  <p className="text-xs font-medium text-[#374151] truncate">{item.name}</p>
+                  <p className="text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
+                  <span className="w-5 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
+                  <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                </div>
+              </div>
+            ))}
           </div>
-          <button
-            onClick={submitOrder}
-            disabled={loading || cart.length === 0}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50"
-          >
-            {loading ? '처리 중...' : '주문하기'}
+        ) : (
+          <p className="text-center text-xs text-gray-400 py-1.5">상품을 선택하세요</p>
+        )}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <div>
+            <p className="text-base font-bold text-[#111827]">{cartTotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
+            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
+          </div>
+          <button onClick={submitOrder} disabled={loading || cart.length === 0}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
+            {loading ? '처리중...' : '주문하기'}
           </button>
         </div>
       </div>
+
+      {/* PC용 sticky 사이드바 */}
+      <div className="hidden lg:block lg:w-80 xl:w-96">
+        <div className="sticky top-0 h-screen bg-white border-l border-gray-100 shadow-sm flex flex-col">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-base font-bold text-[#111827]">장바구니</h2>
+            <button onClick={() => navigateTo('orders')} className="text-xs text-blue-500 hover:text-blue-600 font-medium px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors">
+              주문내역
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
+            {cart.length === 0 && (<p className="text-center text-xs text-gray-400 py-8">상품을 선택하세요</p>)}
+            {cart.map(item => (
+              <div key={item.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div className="flex-1 min-w-0 mr-2">
+                  <p className="text-xs font-medium text-[#374151] truncate">{item.name}</p>
+                  <p className="text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">-</button>
+                  <span className="w-5 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">+</button>
+                  <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-5 py-4 bg-gray-50 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-lg font-bold text-[#111827]">{cartTotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
+                <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
+              </div>
+              <button onClick={submitOrder} disabled={loading || cart.length === 0}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
+                {loading ? '처리중...' : '주문하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
     </div>
   );
 }
