@@ -271,8 +271,10 @@ export default function StaffPos() {
     console.log('allOrders table_id 샘플:', allOrders.slice(0,3).map(o => ({ id: o.id, table_id: o.table_id, type: typeof o.table_id })));
     console.log('tables 샘플:', tables.slice(0,3));
     
+    // 숫자만 추출해서 비교
+    const tableIdNum = tableId.replace(/\D/g, '');
     // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
-    const tableOrders = allOrders.filter(order => String(order.table_id) === String(tableId));
+    const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === tableIdNum);
     console.log('필터링된 주문:', tableOrders);
     
     const hasOrder = tableOrders.length > 0;
@@ -293,10 +295,10 @@ export default function StaffPos() {
     setLoading(true);
     try {
       const s = getSupabase();
-      const { data: orders } = await s.from('orders').select('id').eq('table_id', tableId);
+      const { data: orders } = await s.from('orders').select('id').eq('table_id', tableId.replace(/\D/g, ''));
       const ids = orders?.map((o: any) => o.id) || [];
       if (ids.length > 0) await s.from('order_items').delete().in('order_id', ids);
-      const { error } = await s.from('orders').delete().eq('table_id', tableId);
+      const { error } = await s.from('orders').delete().eq('table_id', tableId.replace(/\D/g, ''));
       if (error) throw error; setMessage('테이블 ' + tableId + ' 주문이 삭제되었습니다.'); await fetchOrders();
     } catch (e) { setMessage('삭제 중 오류가 발생했습니다.'); }
     finally { setLoading(false); }
@@ -307,7 +309,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
   allOrders
     .filter(order => order.status === 'pending')
     .forEach(order => {
-      const key = String(order.table_id);
+      const key = String(order.table_id).replace(/\D/g, '');
       if (!info[key]) info[key] = { orders: [], totalAmount: 0 };
       info[key].orders.push(order);
       // Use total_amount if available, otherwise fall back to total
@@ -384,16 +386,16 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
     setLoading(true);
     try {
       const s = getSupabase();
-       // Insert a new order with actual database column names
-       const { data: od, error: oe } = await s.from('orders').insert({
-         table_id: selectedTable,
-         total_amount: total,  // actual column name is total_amount
-         status: 'pending',
-         payment_method: 'card',
-         subtotal: sub,
-         tax_amount: tax,      // actual column name is tax_amount
-         include_tax: true     // actual column in database
-       }).select().single();
+        // Insert a new order with actual database column names
+        const { data: od, error: oe } = await s.from('orders').insert({
+          table_id: selectedTable.replace(/\D/g, ''), // 숫자만 저장
+          total_amount: total,  // actual column name is total_amount
+          status: 'pending',
+          payment_method: 'card',
+          subtotal: sub,
+          tax_amount: tax,      // actual column name is tax_amount
+          include_tax: true     // actual column in database
+        }).select().single();
       if (oe) throw oe;
        // Insert each cart item as an order_item.
        // 데이터베이스에는 unit_price와 price 컬럼이 모두 있음
@@ -490,7 +492,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         const { data, error } = await supabase
           .from('sales')
           .insert({
-            table_id: String(tableId),
+            table_id: String(tableId).replace(/\D/g, ''),
             total_amount: total,
             payment_method: method,
             order_count: orders.length
@@ -501,11 +503,11 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         setMessage('판매내역 저장 실패');
       }
 
-      // 2. 주문 상태 업데이트 (문자열 비교로 통일)
-      const { data: pendingOrders, error: pendingErr } = await supabase
-        .from('orders')
-        .select('id')
-        .match({ table_id: String(tableId), status: 'pending' });
+       // 2. 주문 상태 업데이트 (문자열 비교로 통일)
+       const { data: pendingOrders, error: pendingErr } = await supabase
+         .from('orders')
+         .select('id')
+         .match({ table_id: String(tableId).replace(/\D/g, ''), status: 'pending' });
       if (pendingErr) throw pendingErr;
 
       if (pendingOrders && pendingOrders.length > 0) {
@@ -574,13 +576,18 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         <main className="flex-1 p-4 lg:p-6 max-w-5xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
             {tables.sort((a, b) => {
-              const aNum = Number(a.name.replace('Table ', ''));
-              const bNum = Number(b.name.replace('Table ', ''));
+              // 테이블 이름에서 숫자만 추출해서 정렬
+              const aMatch = a.name.match(/\d+/);
+              const bMatch = b.name.match(/\d+/);
+              const aNum = aMatch ? parseInt(aMatch[0]) : 0;
+              const bNum = bMatch ? parseInt(bMatch[0]) : 0;
               return aNum - bNum;
             }).map(table => {
-              const ts = table.name.replace('Table ', '');
+              const ts = table.name.replace(/\D/g, ''); // 숫자만 추출
+              console.log('테이블:', table.id, table.name, '→ ts:', ts);
               // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
               const tableOrders = allOrders.filter(order => String(order.table_id) === String(ts));
+              console.log('테이블', ts, '주문:', tableOrders);
               const hasOrder = tableOrders.length > 0;
               const totalOrders = tableOrders.length;
               const pending = tableOrders.filter(o => o.status === 'pending').length;
@@ -608,8 +615,10 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
 
   // ==================== 주문내역 ====================
   if (currentView === 'orders') {
-    const tableOrders = allOrders.filter(o => String(o.table_id) === String(selectedTable));
-    console.log('주문내역 화면 - selectedTable:', selectedTable, 'tableOrders:', tableOrders);
+    // 숫자만 추출해서 비교
+    const tableIdNum = selectedTable?.replace(/\D/g, '');
+    const tableOrders = allOrders.filter(o => String(o.table_id).replace(/\D/g, '') === tableIdNum);
+    console.log('주문내역 화면 - selectedTable:', selectedTable, 'tableIdNum:', tableIdNum, 'tableOrders:', tableOrders);
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
