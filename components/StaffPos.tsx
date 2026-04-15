@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 
-type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string };
+type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string; tax_rate?: number };
 type CartItem = Product & { quantity: number };
 type Table = { id: string; name: string; status: string };
 type OrderData = { id: string; table_id: string; total: number; status: string; created_at: string; total_amount?: number; tax_amount?: number };
