@@ -213,11 +213,9 @@ export default function StaffPos() {
   }, [allOrders]);
 
   function addToCart(product: Product) {
-    if (product.stock <= 0) { setMessage('재고가 부족합니다.'); return; }
     const ex = cart.find(i => i.id === product.id);
     if (ex) {
-      if (ex.quantity < product.stock) setCart(cart.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
-      else setMessage('재고가 부족합니다.');
+      setCart(cart.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
@@ -228,7 +226,8 @@ export default function StaffPos() {
       prev.reduce<CartItem[]>((acc, i) => {
         if (i.id !== productId) { acc.push(i); return acc; }
         const n = i.quantity + delta;
-        if (n > 0 && n <= i.stock) acc.push({ ...i, quantity: n });
+        if (n > 0) acc.push({ ...i, quantity: n });
+        // n === 0 이면 항목 삭제 (acc에 push 안 함)
         return acc;
       }, [])
     );
@@ -241,14 +240,14 @@ export default function StaffPos() {
 
   function saveQuantity(productId: string) {
     const newQuantity = parseInt(quantityInput);
-    if (isNaN(newQuantity) || newQuantity < 1) { setMessage('유효한 수량을 입력해주세요.'); return; }
-    setCart(cart.map(i => {
-      if (i.id === productId) {
-        if (newQuantity > i.stock) { setMessage('재고가 부족합니다.'); return i; }
-        return { ...i, quantity: newQuantity };
-      }
-      return i;
-    }));
+    if (isNaN(newQuantity) || newQuantity < 1) {
+      // 0 이하 입력 시 해당 항목 삭제
+      setCart(prev => prev.filter(i => i.id !== productId));
+      setEditingQuantityId(null);
+      setQuantityInput('');
+      return;
+    }
+    setCart(prev => prev.map(i => i.id === productId ? { ...i, quantity: newQuantity } : i));
     setEditingQuantityId(null);
     setQuantityInput('');
   }
@@ -1108,18 +1107,24 @@ export default function StaffPos() {
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {editingQuantityId === item.id ? (
                       <div className="flex items-center gap-1">
-                        <input type="number" value={quantityInput} onChange={e => setQuantityInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveQuantity(item.id); if (e.key === 'Escape') cancelEditing(); }}
-                          className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus min="1" />
-                        <button onClick={() => saveQuantity(item.id)} className="w-6 h-6 bg-blue-500 text-white rounded flex items-center justify-center text-xs">✓</button>
-                        <button onClick={cancelEditing} className="w-6 h-6 bg-gray-200 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
+                        <input
+                          type="number"
+                          value={quantityInput}
+                          onChange={e => setQuantityInput(e.target.value)}
+                          onFocus={e => e.target.select()}
+                          onBlur={() => saveQuantity(item.id)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
+                          className="w-14 h-7 text-center text-xs border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 font-bold"
+                          autoFocus
+                          min="1"
+                        />
                       </div>
                     ) : (
                       <>
-                        <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">−</button>
-                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">{item.quantity}</button>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
-                        <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">✕</button>
+                        <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">−</button>
+                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-9 h-7 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm transition-colors">{item.quantity}</button>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">+</button>
+                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-xs ml-0.5 transition-colors">✕</button>
                       </>
                     )}
                   </div>
@@ -1175,18 +1180,24 @@ export default function StaffPos() {
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {editingQuantityId === item.id ? (
                       <div className="flex items-center gap-1">
-                        <input type="number" value={quantityInput} onChange={e => setQuantityInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveQuantity(item.id); if (e.key === 'Escape') cancelEditing(); }}
-                          className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus min="1" />
-                        <button onClick={() => saveQuantity(item.id)} className="w-6 h-6 bg-blue-500 text-white rounded flex items-center justify-center text-xs">✓</button>
-                        <button onClick={cancelEditing} className="w-6 h-6 bg-gray-200 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
+                        <input
+                          type="number"
+                          value={quantityInput}
+                          onChange={e => setQuantityInput(e.target.value)}
+                          onFocus={e => e.target.select()}
+                          onBlur={() => saveQuantity(item.id)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
+                          className="w-14 h-7 text-center text-xs border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 font-bold"
+                          autoFocus
+                          min="1"
+                        />
                       </div>
                     ) : (
                       <>
-                        <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">−</button>
-                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">{item.quantity}</button>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
-                        <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">✕</button>
+                        <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">−</button>
+                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-9 h-7 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm transition-colors">{item.quantity}</button>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">+</button>
+                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-xs ml-0.5 transition-colors">✕</button>
                       </>
                     )}
                   </div>
