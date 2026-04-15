@@ -48,6 +48,11 @@ export default function StaffPos() {
   }, [selectedTable]);
 
   useEffect(() => { loadAllData(); }, []);
+  
+  // 디버그: tables 로드 후 로그
+  useEffect(() => {
+    console.log(' tables 로드됨:', tables);
+  }, [tables]);
   useEffect(() => {
     if (isOrderComplete) { setIsOrderComplete(false); setSelectedTable(null); setMessage(null); }
   }, [isOrderComplete]);
@@ -263,7 +268,8 @@ export default function StaffPos() {
   function selectTable(tableId: string) {
     console.log('=== selectTable 시작 ===');
     console.log('선택된 테이블:', tableId, typeof tableId);
-    console.log('allOrders table_id 타입 샘플:', allOrders.slice(0,3).map(o => ({ id: o.id, table_id: o.table_id, type: typeof o.table_id })));
+    console.log('allOrders table_id 샘플:', allOrders.slice(0,3).map(o => ({ id: o.id, table_id: o.table_id, type: typeof o.table_id })));
+    console.log('tables 샘플:', tables.slice(0,3));
     
     // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
     const tableOrders = allOrders.filter(order => String(order.table_id) === String(tableId));
@@ -567,8 +573,12 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         </header>
         <main className="flex-1 p-4 lg:p-6 max-w-5xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
-            {tables.sort((a, b) => Number(a.name) - Number(b.name)).map(table => {
-              const ts = table.name;
+            {tables.sort((a, b) => {
+              const aNum = Number(a.name.replace('Table ', ''));
+              const bNum = Number(b.name.replace('Table ', ''));
+              return aNum - bNum;
+            }).map(table => {
+              const ts = table.name.replace('Table ', '');
               // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
               const tableOrders = allOrders.filter(order => String(order.table_id) === String(ts));
               const hasOrder = tableOrders.length > 0;
