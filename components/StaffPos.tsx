@@ -138,22 +138,24 @@ export default function StaffPos() {
         console.log('항목 삭제 성공');
         setMessage('주문 항목이 삭제되었습니다.');
       } else {
-        // 기존 항목의 수량과 가격 업데이트 (수량 * 단가)
-        const newPrice = product.price * newQuantity;
+        // 기존 항목의 수량과 가격 업데이트 (단가와 총액 모두 업데이트)
+        const unitPrice = product.price; // 단가
+        const newPrice = unitPrice * newQuantity; // 총액 = 단가 × 수량
         console.log('수량 업데이트 시작:', {
           orderItemId,
           currentQuantity,
           newQuantity,
-          productPrice: product.price,
+          unitPrice,
           newPrice,
           order_id: orderItem.order_id
         });
         
-        // 1. order_items 업데이트
+        // 1. order_items 업데이트 (unit_price와 price 모두 업데이트)
         console.log('order_items 업데이트 시도...');
         const { error: updateError, data: updateData } = await s.from('order_items').update({ 
           quantity: newQuantity,
-          price: newPrice 
+          unit_price: unitPrice,  // 단가 업데이트
+          price: newPrice         // 총액 업데이트
         }).eq('id', orderItemId);
         
         if (updateError) {
@@ -352,13 +354,14 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
        }).select().single();
       if (oe) throw oe;
        // Insert each cart item as an order_item.
-       // The actual database only has 'price' column, not 'unit_price'
+       // 데이터베이스에는 unit_price와 price 컬럼이 모두 있음
        await s.from('order_items').insert(
          cart.map(i => ({
            order_id: od.id,
            product_id: i.id,
            quantity: i.quantity,
-           price: i.price,
+           unit_price: i.price,  // 단가
+           price: i.price * i.quantity,  // 총액 = 단가 × 수량
          }))
        );
       setCart([]); setMessage('주문이 완료되었습니다!'); await fetchOrders(); navigateTo('orders');
