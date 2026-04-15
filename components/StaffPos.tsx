@@ -409,10 +409,10 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
            price: i.price * i.quantity,  // 총액 = 단가 × 수량
          }))
        );
-       setCart([]); 
-       setMessage('주문이 완료되었습니다!'); 
-       await fetchOrders(); // 데이터가 완전히 로드될 때까지 기다림
-       navigateTo('orders'); // 데이터 로드 완료 후 화면 이동
+        setCart([]); 
+        setMessage('주문이 완료되었습니다!'); 
+        await fetchOrders(); // 데이터가 완전히 로드될 때까지 기다림
+        setIsOrderComplete(true); // 완료 화면 표시 후 테이블 선택 화면으로 이동
     } catch (e) {
       // Log the full error for debugging and surface a more informative message to the user.
       console.error('주문 처리 중 오류 발생:', e);
@@ -670,24 +670,45 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                     {items.map(item => {
                       const product = products.find(p => p.id === item.product_id);
                       const isEditing = editingOrderItem?.itemId === item.id;
-                      return (
-                        <div key={item.id} className="flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5">
-                          <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] lg:text-xs font-medium text-[#374151] truncate">{product?.name || 'Unknown'}</p>
-                            <p className="text-[9px] lg:text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
-                          </div>
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
-                            <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
-                            <button onClick={() => startEditingOrderItem(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
-                              {item.quantity}
-                            </button>
-                            <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
-                          </div>
-                        </div>
-                      );
+                       return (
+                         <div key={item.id} className="flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5">
+                           <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                             {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                             <p className="text-[11px] lg:text-xs font-medium text-[#374151] truncate">{product?.name || 'Unknown'}</p>
+                             <p className="text-[9px] lg:text-[10px] text-gray-400">
+                               {product?.price.toLocaleString() || 0} VND × {item.quantity}개 = {(item.price * item.quantity).toLocaleString()} VND
+                             </p>
+                           </div>
+                           <div className="flex items-center gap-0.5 flex-shrink-0">
+                             <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
+                             {isEditing ? (
+                               <div className="flex items-center gap-1">
+                                 <input
+                                   type="number"
+                                   value={editingOrderItem.newQuantity}
+                                   onChange={(e) => setEditingOrderItem({...editingOrderItem, newQuantity: parseInt(e.target.value) || 1})}
+                                   onKeyDown={(e) => {
+                                     if (e.key === 'Enter') saveOrderItemQuantity(item.id, item.id, item.quantity, editingOrderItem.newQuantity);
+                                     if (e.key === 'Escape') cancelEditingOrderItem();
+                                   }}
+                                   className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                   autoFocus
+                                   min="1"
+                                 />
+                                 <button onClick={() => saveOrderItemQuantity(item.id, item.id, item.quantity, editingOrderItem.newQuantity)} className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded flex items-center justify-center text-xs">✓</button>
+                                 <button onClick={cancelEditingOrderItem} className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
+                               </div>
+                             ) : (
+                               <button onClick={() => startEditingOrderItem(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
+                                 {item.quantity}
+                               </button>
+                             )}
+                             <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
+                           </div>
+                         </div>
+                       );
                     })}
                   </div>
                 </div>
@@ -696,11 +717,20 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
           )}
         </main>
 
-        <div className="bg-white border-t border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 flex gap-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]">
-          <button onClick={() => issueReceipt(tableOrders)} className="flex-1 bg-gray-50 hover:bg-gray-100 text-[#374151] py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">영수증</button>
-          <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }} disabled={tableOrders.length === 0}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">결제</button>
-        </div>
+         <div className="bg-white border-t border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 flex gap-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]">
+           <div className="flex-1 flex items-center justify-between px-3">
+             <span className="text-sm text-gray-600">총 금액:</span>
+             <span className="text-lg font-bold text-[#111827]">
+               {tableOrders.reduce((sum, o) => {
+                 const orderTotal = o.total_amount !== undefined ? o.total_amount : o.total;
+                 return sum + orderTotal;
+               }, 0).toLocaleString()} VND
+             </span>
+           </div>
+           <button onClick={() => issueReceipt(tableOrders)} className="flex-1 bg-gray-50 hover:bg-gray-100 text-[#374151] py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">영수증</button>
+           <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }} disabled={tableOrders.length === 0}
+             className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">결제</button>
+         </div>
 
         <button onClick={() => navigateTo('menu')}
           className="fixed bottom-20 lg:bottom-24 right-4 lg:right-6 w-12 h-12 lg:w-14 lg:h-14 bg-[#1F2937] hover:bg-[#111827] text-white text-xl lg:text-2xl rounded-full shadow-xl hover:scale-105 transition-all flex items-center justify-center z-40">+</button>
