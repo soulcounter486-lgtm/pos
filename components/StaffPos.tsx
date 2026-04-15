@@ -290,11 +290,31 @@ export default function StaffPos() {
       }
       if (itemError) throw itemError;
 
+      // 낙관적 업데이트: DB fetch 결과를 기다리지 않고 즉시 state 반영
+      const newOrder: OrderData = {
+        id: od.id,
+        table_id: selectedTableId,
+        total_amount: total,
+        total: total,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+      const newItems: OrderItemData[] = cart.map(i => ({
+        id: crypto.randomUUID(),
+        order_id: od.id,
+        product_id: i.id,
+        quantity: i.quantity,
+        price: i.price * i.quantity,
+        status: 'pending',
+        note: cartMemos[i.id] || undefined,
+      }));
+      setAllOrders(prev => [newOrder, ...prev]);
+      setAllOrderItems(prev => [...prev, ...newItems]);
       setCart([]);
       setCartMemos({});
-      await fetchOrders();
       setMessage('주문이 완료되었습니다!');
       navigateTo('orders');
+      fetchOrders(); // 백그라운드에서 실제 DB 데이터로 갱신 (await 없음)
     } catch (e: unknown) {
       console.error('주문 처리 중 오류 발생:', e);
       let errMsg = '';
