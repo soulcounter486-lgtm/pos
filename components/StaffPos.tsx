@@ -205,15 +205,14 @@ export default function StaffPos() {
   }
 
   function updateQuantity(productId: string, delta: number) {
-    setCart(prev => {
-      return prev.map(i => {
-        if (i.id !== productId) return i;
+    setCart(prev =>
+      prev.reduce<CartItem[]>((acc, i) => {
+        if (i.id !== productId) { acc.push(i); return acc; }
         const n = i.quantity + delta;
-        if (n <= 0) return null as any;
-        if (n <= i.stock) return { ...i, quantity: n };
-        return i;
-      }).filter(Boolean) as CartItem[];
-    });
+        if (n > 0 && n <= i.stock) acc.push({ ...i, quantity: n });
+        return acc;
+      }, [])
+    );
   }
 
   function startEditingQuantity(productId: string, currentQuantity: number) {
@@ -289,11 +288,11 @@ export default function StaffPos() {
       setMessage('주문이 완료되었습니다!');
       await fetchOrders();
       setIsOrderComplete(true);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('주문 처리 중 오류 발생:', e);
       let errMsg = '';
       if (e instanceof Error) errMsg = e.message;
-      else if (typeof e === 'object' && e !== null && 'message' in e) errMsg = (e as any).message;
+      else if (typeof e === 'object' && e !== null && 'message' in e) errMsg = String((e as Record<string, unknown>).message);
       else errMsg = JSON.stringify(e);
       setMessage('주문 처리 중 오류 발생: ' + errMsg);
     } finally { setLoading(false); }
@@ -349,7 +348,7 @@ export default function StaffPos() {
           payment_method: method,
           order_count: orders.length
         });
-      } catch (e: any) { console.error('Sales insert error:', e.message); }
+      } catch (e: unknown) { console.error('Sales insert error:', e instanceof Error ? e.message : e); }
 
       const { data: pendingOrdersData, error: pendingErr } = await supabase
         .from('orders').select('id').match({ table_id: String(tableId).replace(/\D/g, ''), status: 'pending' });
@@ -366,12 +365,13 @@ export default function StaffPos() {
       setSelectedTable(null);
       setMessage('결제 완료!');
       await fetchOrders();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('결제 에러:', e);
       setCurrentView('orders');
       setPendingOrders([]);
       setSelectedTable(null);
-      setMessage('결제 오류: ' + (e.message || '알수없음'));
+      const errMsg = e instanceof Error ? e.message : '알수없음';
+      setMessage('결제 오류: ' + errMsg);
       await fetchOrders();
     } finally { setLoading(false); }
   }

@@ -27,12 +27,18 @@ type Order = {
 
 type Tab = 'pending' | 'completed';
 
+// Safari 등 구형 브라우저의 webkitAudioContext 타입 확장
+interface WindowWithWebkit extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 // Web Audio API로 알림 소리 재생
 function playNotificationSound() {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const w = window as WindowWithWebkit;
+    const AudioCtxClass = window.AudioContext || w.webkitAudioContext;
+    if (!AudioCtxClass) return;
+    const ctx = new AudioCtxClass();
 
     const beep = (freq: number, start: number, duration: number, vol: number) => {
       const osc = ctx.createOscillator();
