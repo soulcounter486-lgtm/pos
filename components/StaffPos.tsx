@@ -76,12 +76,35 @@ export default function StaffPos() {
     setLoadingTables(false);
   }
   async function fetchOrders() {
+    console.log('=== fetchOrders 시작 ===');
     try {
       const s = getSupabase();
-      const { data: orders } = await s.from('orders').select('*').order('created_at', { ascending: false });
-      const { data: items } = await s.from('order_items').select('*');
-      setAllOrders(orders || []); setAllOrderItems(items || []);
-    } catch (e) { console.error('Orders error:', e); }
+      console.log('Supabase 클라이언트 생성됨');
+      
+      const { data: orders, error: ordersError } = await s.from('orders').select('*').order('created_at', { ascending: false });
+      console.log('orders 조회 결과:', { orders, ordersError });
+      
+      const { data: items, error: itemsError } = await s.from('order_items').select('*');
+      console.log('order_items 조회 결과:', { items, itemsError });
+      
+      if (ordersError) {
+        console.error('orders 조회 오류:', ordersError);
+      }
+      if (itemsError) {
+        console.error('order_items 조회 오류:', itemsError);
+      }
+      
+      setAllOrders(orders || []); 
+      setAllOrderItems(items || []);
+      console.log('데이터 상태 업데이트 완료:', { 
+        ordersCount: orders?.length || 0, 
+        itemsCount: items?.length || 0 
+      });
+    } catch (e) { 
+      console.error('Orders error:', e); 
+    } finally {
+      console.log('=== fetchOrders 종료 ===');
+    }
   }
 
   function startEditingOrderItem(itemId: string, currentQuantity: number) {
