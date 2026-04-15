@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
+import { QRCodeSVG } from 'qrcode.react';
+import ReceiptModal from '@/components/ReceiptModal';
 
 type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string; tax_rate?: number };
 type CartItem = Product & { quantity: number };
 type Table = { id: string; name: string; status: string };
 type OrderData = { id: string; table_id: string; total: number; status: string; created_at: string; total_amount?: number; tax_amount?: number };
 type OrderItemData = { id: string; order_id: string; product_id: string; quantity: number; price: number; unit_price?: number; status: string; note?: string };
+type Settings = { bank_name: string; account_number: string; account_holder: string; receipt_header: string };
 
 export default function StaffPos() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,6 +36,10 @@ export default function StaffPos() {
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [mergedTables, setMergedTables] = useState<string[]>([]); // numeric table IDs
   const [showMergedPaymentModal, setShowMergedPaymentModal] = useState(false);
+  // 영수증 · 설정
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showTransferQR, setShowTransferQR] = useState(false);
+  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: 'POS 레스토랑' });
 
   // 뒤로가기 처리
   useEffect(() => {
@@ -93,7 +100,15 @@ export default function StaffPos() {
     }
   }, [message]);
 
-  async function loadAllData() { await Promise.all([fetchProducts(), fetchTables(), fetchOrders()]); setDataLoaded(true); }
+  async function fetchSettings() {
+    try {
+      const s = getSupabase();
+      const { data } = await s.from('settings').select('*').eq('id', 'default').single();
+      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', receipt_header: data.receipt_header || 'POS 레스토랑' });
+    } catch (e) { console.warn('설정 로드 실패 (settings 테이블 없음):', e); }
+  }
+
+  async function loadAllData() { await Promise.all([fetchProducts(), fetchTables(), fetchOrders(), fetchSettings()]); setDataLoaded(true); }
 
   async function fetchProducts() {
     setLoading(true);
@@ -316,23 +331,8 @@ export default function StaffPos() {
     return f;
   }, [products, selectedCategory, searchTerm]);
 
-  function issueReceipt(orders: OrderData[]) {
-    if (orders.length === 0) return;
-    const total = orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
-    let r = '\n==============================\n         POS 가영수증\n==============================\n\n';
-    r += '테이블: ' + selectedTable + '\n시간: ' + new Date().toLocaleString('ko-KR') + '\n주문: ' + orders.length + '건\n\n------------------------------\n';
-    orders.forEach((o, i) => {
-      r += '\n[주문 ' + (i + 1) + ']\n';
-      allOrderItems.filter(x => x.order_id === o.id).forEach(item => {
-        const p = products.find(pr => pr.id === item.product_id);
-        r += '  ' + (p?.name || '상품') + ' x' + item.quantity + ' - ' + (item.price).toLocaleString() + ' VND\n';
-        if (item.note) r += '  메모: ' + item.note + '\n';
-      });
-      const orderTotal = o.total_amount !== undefined ? o.total_amount : o.total;
-      r += '  소계: ' + orderTotal.toLocaleString() + ' VND\n';
-    });
-    r += '\n------------------------------\n합계: ' + total.toLocaleString() + ' VND\n==============================\n';
-    alert(r);
+  function issueReceipt() {
+    setShowReceiptModal(true);
   }
 
   async function completePayment(method: string) {
@@ -907,9 +907,9 @@ export default function StaffPos() {
             <span className="text-sm text-gray-600">총 금액</span>
             <span className="text-lg font-bold text-blue-600">{grandTotal.toLocaleString()} VND</span>
           </div>
-          <button onClick={() => issueReceipt(tableOrders)}
+          <button onClick={() => issueReceipt()}
             className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
-            영수증
+            가영수증
           </button>
           <button onClick={() => { setPendingOrders(tablePendingOrders); setShowPaymentModal(true); }}
             disabled={tablePendingOrders.length === 0}
@@ -923,35 +923,113 @@ export default function StaffPos() {
           className="fixed bottom-20 right-4 lg:right-6 w-12 h-12 lg:w-14 lg:h-14 bg-[#1F2937] hover:bg-[#111827] text-white text-2xl rounded-full shadow-xl hover:scale-105 transition-all flex items-center justify-center z-40">+</button>
 
         {/* 결제 수단 모달 */}
-        {showPaymentModal && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100">
-                <h3 className="text-lg font-bold text-[#111827]">결제 수단</h3>
-                <p className="text-sm text-gray-400">
-                  Table {selectedTable} · {pendingOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0).toLocaleString()} VND
-                </p>
-              </div>
-              <div className="p-4 space-y-2">
-                {[
-                  { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
-                  { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
-                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer' },
-                ].map(m => (
-                  <button key={m.key} onClick={() => completePayment(m.key)}
-                    className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
-                    <span className="text-2xl">{m.icon}</span>
-                    <div><p className="font-semibold text-[#111827]">{m.name}</p><p className="text-xs text-gray-400">{m.sub}</p></div>
-                  </button>
-                ))}
-              </div>
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <button onClick={() => { setShowPaymentModal(false); setPendingOrders([]); }}
-                  className="w-full text-gray-400 hover:text-[#374151] py-2 text-sm font-medium">취소</button>
+        {showPaymentModal && (() => {
+          const payTotal = pendingOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+          const hasBankInfo = settings.bank_name || settings.account_number;
+          const qrValue = hasBankInfo
+            ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${payTotal.toLocaleString()} VND`
+            : '';
+          return (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                {showTransferQR ? (
+                  <>
+                    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                      <button onClick={() => setShowTransferQR(false)} className="text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <div>
+                        <h3 className="text-base font-bold text-[#111827]">계좌이체 결제</h3>
+                        <p className="text-xs text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      {hasBankInfo ? (
+                        <div className="flex items-start gap-4 bg-blue-50 rounded-xl p-4 border border-blue-100">
+                          <div className="bg-white p-2 rounded-lg border border-blue-200 flex-shrink-0">
+                            <QRCodeSVG value={qrValue || ' '} size={76} level="M" />
+                          </div>
+                          <div className="space-y-2 flex-1">
+                            <div>
+                              <p className="text-[10px] text-blue-400 uppercase">은행</p>
+                              <p className="text-sm font-bold text-[#1F2937]">{settings.bank_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-blue-400 uppercase">계좌번호</p>
+                              <p className="text-sm font-bold text-[#1F2937] tracking-wider">{settings.account_number}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-blue-400 uppercase">예금주</p>
+                              <p className="text-sm font-semibold text-[#1F2937]">{settings.account_holder}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-amber-50 rounded-xl p-4 border border-amber-100 text-center">
+                          <p className="text-sm text-amber-600">관리자 설정에서 은행정보를 먼저 입력해주세요.</p>
+                        </div>
+                      )}
+                      <div className="bg-gray-50 rounded-xl p-3 text-center">
+                        <p className="text-xs text-gray-400">이체 금액</p>
+                        <p className="text-xl font-bold text-blue-600">{payTotal.toLocaleString()} VND</p>
+                      </div>
+                    </div>
+                    <div className="px-5 pb-5 space-y-2">
+                      <button onClick={() => { setShowTransferQR(false); completePayment('transfer'); }}
+                        className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-colors">
+                        이체 완료 · 결제 처리
+                      </button>
+                      <button onClick={() => setShowTransferQR(false)}
+                        className="w-full py-2 text-gray-400 hover:text-[#374151] text-sm font-medium">뒤로</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-6 py-5 border-b border-gray-100">
+                      <h3 className="text-lg font-bold text-[#111827]">결제 수단</h3>
+                      <p className="text-sm text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      {[
+                        { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
+                        { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
+                        { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer · QR' },
+                      ].map(m => (
+                        <button key={m.key}
+                          onClick={() => { if (m.key === 'transfer') { setShowTransferQR(true); } else { completePayment(m.key); } }}
+                          className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
+                          <span className="text-2xl">{m.icon}</span>
+                          <div>
+                            <p className="font-semibold text-[#111827]">{m.name}</p>
+                            <p className="text-xs text-gray-400">{m.sub}</p>
+                          </div>
+                          {m.key === 'transfer' && hasBankInfo && (
+                            <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">QR</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-4 bg-gray-50 border-t border-gray-100">
+                      <button onClick={() => { setShowPaymentModal(false); setShowTransferQR(false); setPendingOrders([]); }}
+                        className="w-full text-gray-400 hover:text-[#374151] py-2 text-sm font-medium">취소</button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
+
+        {/* 가영수증 모달 */}
+        <ReceiptModal
+          isOpen={showReceiptModal}
+          onClose={() => setShowReceiptModal(false)}
+          orders={tableOrders}
+          orderItems={allOrderItems}
+          products={products}
+          tableNumber={selectedTable!}
+          settings={settings}
+        />
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>

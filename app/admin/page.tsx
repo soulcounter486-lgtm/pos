@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { clearAuth, getAuth } from '@/lib/auth';
 import ProductAdmin from '@/components/ProductAdmin';
 import SalesHistory from '@/components/SalesHistory';
+import AdminSettings from '@/components/AdminSettings';
 
 const tabs = [
   { id: 'products', label: '상품 관리' },
   { id: 'sales', label: '판매 내역' },
+  { id: 'settings', label: '설정' },
 ];
 
 export default function AdminPage() {
@@ -72,7 +74,9 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {activeTab === 'products' ? <ProductAdmin /> : <SalesHistory />}
+        {activeTab === 'products' && <ProductAdmin />}
+        {activeTab === 'sales' && <SalesHistory />}
+        {activeTab === 'settings' && <AdminSettings />}
       </div>
     </main>
   );

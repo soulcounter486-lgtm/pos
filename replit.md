@@ -4,9 +4,11 @@ A Point of Sale (POS) application for restaurants built with Next.js 14, Tailwin
 
 ## Features
 
-- **Staff POS** (`/staff`): Table selection, product browsing by category, cart management, order submission, payment processing
-- **Kitchen Display** (`/kitchen`): Real-time order queue with Supabase Realtime subscriptions
-- **Admin Dashboard** (`/admin`): Products, categories, tables, and sales history management
+- **Staff POS** (`/staff`): Table selection, product browsing by category, cart management, order submission, payment processing (현금/카드/계좌이체)
+- **합석 기능**: Multi-table merge mode — view combined orders and process a single merged payment
+- **가영수증**: Pre-payment receipt popup with itemized list, totals, and QR code for bank transfer
+- **Kitchen Display** (`/kitchen`): Real-time order queue with Supabase Realtime subscriptions and audio notifications
+- **Admin Dashboard** (`/admin`): Products, categories, tables, sales history, and settings (bank info + receipt header)
 - **Authentication**: Role-based login for `admin`, `staff`, and `kitchen` roles
 
 ## Tech Stack
@@ -15,6 +17,7 @@ A Point of Sale (POS) application for restaurants built with Next.js 14, Tailwin
 - **Styling**: Tailwind CSS
 - **Backend/DB**: Supabase (PostgreSQL + Realtime + Storage)
 - **Language**: TypeScript
+- **QR Code**: qrcode.react (for bank transfer QR in receipts)
 
 ## Project Structure
 
@@ -36,6 +39,13 @@ A Point of Sale (POS) application for restaurants built with Next.js 14, Tailwin
 - Dev: `npm run dev` (port 5000)
 - Build: `npm run build`
 - Start: `npm run start` (port 5000)
+
+## Supabase SQL Migrations Required
+
+Run these in the Supabase SQL Editor before using related features:
+
+1. `supabase/migrations/add_note_column.sql` — adds `note` column to `order_items`
+2. `supabase/migrations/add_settings_table.sql` — creates `settings` table for bank info & receipt header
 
 ## Replit Notes
 
