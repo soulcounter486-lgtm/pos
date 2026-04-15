@@ -364,7 +364,10 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
            price: i.price * i.quantity,  // 총액 = 단가 × 수량
          }))
        );
-      setCart([]); setMessage('주문이 완료되었습니다!'); await fetchOrders(); navigateTo('orders');
+       setCart([]); 
+       setMessage('주문이 완료되었습니다!'); 
+       await fetchOrders(); // 데이터가 완전히 로드될 때까지 기다림
+       navigateTo('orders'); // 데이터 로드 완료 후 화면 이동
     } catch (e) {
       // Log the full error for debugging and surface a more informative message to the user.
       console.error('주문 처리 중 오류 발생:', e);
