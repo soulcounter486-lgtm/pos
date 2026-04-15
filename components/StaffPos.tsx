@@ -24,11 +24,15 @@ export default function StaffPos() {
   const [message, setMessage] = useState<string | null>(null);
   const [allOrders, setAllOrders] = useState<OrderData[]>([]);
   const [allOrderItems, setAllOrderItems] = useState<OrderItemData[]>([]);
-  const [currentView, setCurrentView] = useState<'orders' | 'menu'>('orders');
+  const [currentView, setCurrentView] = useState<'orders' | 'menu' | 'merged-orders'>('orders');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
   const [isOrderComplete, setIsOrderComplete] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  // 합석 기능
+  const [isMergeMode, setIsMergeMode] = useState(false);
+  const [mergedTables, setMergedTables] = useState<string[]>([]); // numeric table IDs
+  const [showMergedPaymentModal, setShowMergedPaymentModal] = useState(false);
 
   // 뒤로가기 처리
   useEffect(() => {
@@ -375,6 +379,88 @@ export default function StaffPos() {
     } finally { setLoading(false); }
   }
 
+  // ==================== 합석 기능 ====================
+
+  function toggleMergeMode() {
+    setIsMergeMode(prev => !prev);
+    setMergedTables([]);
+  }
+
+  function toggleMergeTable(tableId: string) {
+    setMergedTables(prev =>
+      prev.includes(tableId) ? prev.filter(t => t !== tableId) : [...prev, tableId]
+    );
+  }
+
+  function openMergedOrders() {
+    setCurrentView('merged-orders');
+  }
+
+  function exitMergedOrders() {
+    setCurrentView('orders');
+  }
+
+  async function completeMergedPayment(method: string) {
+    setShowMergedPaymentModal(false);
+    if (mergedTables.length === 0) return;
+
+    // 선택된 모든 테이블의 UUID 목록
+    const mergedUuids = mergedTables
+      .map(ts => tables.find(t => t.name.replace(/\D/g, '') === ts)?.id)
+      .filter((id): id is string => !!id);
+
+    // 선택된 테이블의 모든 pending 주문
+    const mergedPending = allOrders.filter(o =>
+      mergedUuids.includes(o.table_id) &&
+      (o.status === 'pending' || o.status === 'completed')
+    );
+    const mergedOrderIds = mergedPending.map(o => o.id);
+    const grandTotal = mergedPending.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+
+    if (mergedOrderIds.length === 0) {
+      setMessage('결제할 주문이 없습니다.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const supabase = getSupabase();
+
+      // sales 테이블에 합산 기록 (첫 번째 테이블 UUID로)
+      try {
+        await supabase.from('sales').insert({
+          table_id: mergedUuids[0],
+          total_amount: grandTotal,
+          payment_method: method,
+          order_count: mergedOrderIds.length
+        });
+      } catch (e: unknown) { console.error('Sales insert error (merged):', e instanceof Error ? e.message : e); }
+
+      // 모든 선택 테이블의 주문을 completed 처리
+      const { error: ordersErr } = await supabase
+        .from('orders')
+        .update({ status: 'completed', payment_method: method })
+        .in('id', mergedOrderIds);
+      if (ordersErr) throw ordersErr;
+
+      await supabase
+        .from('order_items')
+        .update({ status: 'completed' })
+        .in('order_id', mergedOrderIds);
+
+      // 상태 초기화
+      setMergedTables([]);
+      setIsMergeMode(false);
+      setCurrentView('orders');
+      setMessage('합석 결제 완료!');
+      await fetchOrders();
+    } catch (e: unknown) {
+      console.error('합석 결제 에러:', e);
+      const errMsg = e instanceof Error ? e.message : '알수없음';
+      setMessage('합석 결제 오류: ' + errMsg);
+    } finally { setLoading(false); }
+  }
+
   // ==================== 완료 화면 ====================
   if (isOrderComplete) {
     return (
@@ -402,12 +488,50 @@ export default function StaffPos() {
   }
 
   // ==================== 테이블 선택 ====================
-  if (!selectedTable) {
+  if (!selectedTable && currentView !== 'merged-orders') {
+    // 합석 모드에서 선택된 테이블들의 총 금액 계산
+    const mergedGrandTotal = mergedTables.reduce((sum, ts) => {
+      const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === ts)?.id;
+      if (!tableUuid) return sum;
+      const orders = allOrders.filter(o => o.table_id === tableUuid && (o.status === 'pending' || o.status === 'completed'));
+      return sum + orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    }, 0);
+
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-5 shadow-sm">
-          <h1 className="text-xl font-bold text-[#111827]">직원 POS</h1>
-          <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-[#111827]">직원 POS</h1>
+              <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
+            </div>
+            <button onClick={toggleMergeMode}
+              className={'px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
+                (isMergeMode
+                  ? 'bg-purple-500 text-white shadow-md'
+                  : 'bg-white border border-purple-200 text-purple-600 hover:bg-purple-50')}>
+              {isMergeMode ? '✕ 합석 취소' : '🪑 합석'}
+            </button>
+          </div>
+          {/* 합석 모드 안내 배너 */}
+          {isMergeMode && (
+            <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-purple-700">합석 모드</p>
+                <p className="text-xs text-purple-500">
+                  {mergedTables.length === 0
+                    ? '결제할 테이블을 2개 이상 선택하세요'
+                    : `Table ${mergedTables.join(', ')} 선택됨 · ${mergedGrandTotal.toLocaleString()} VND`}
+                </p>
+              </div>
+              {mergedTables.length >= 2 && (
+                <button onClick={openMergedOrders}
+                  className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                  합산 보기
+                </button>
+              )}
+            </div>
+          )}
         </header>
         <main className="flex-1 p-4 lg:p-6 max-w-5xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -423,17 +547,41 @@ export default function StaffPos() {
               const total = tableOrders.reduce((sum, order) => sum + (order.total_amount !== undefined ? order.total_amount : order.total), 0);
               const totalOrders = tableOrders.length;
               const pendingCount = tableOrders.filter(o => o.status === 'pending').length;
+              const isMergeSelected = mergedTables.includes(ts);
+
+              // 합석 모드: 클릭 시 테이블 선택 토글 / 일반 모드: 테이블 상세로 이동
+              const handleClick = isMergeMode ? () => toggleMergeTable(ts) : () => selectTable(ts);
 
               return (
-                <button key={table.id} onClick={() => selectTable(ts)}
-                  className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' +
-                    (hasCompletedOrders ? 'border-green-200' : hasPendingOrders ? 'border-red-200' : 'border-gray-100')}>
-                  <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' +
-                    (hasCompletedOrders ? 'bg-green-400' : hasPendingOrders ? 'bg-red-400 animate-pulse' : 'bg-gray-300')}></div>
+                <button key={table.id} onClick={handleClick}
+                  className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 text-left ' +
+                    (isMergeMode
+                      ? (isMergeSelected
+                        ? 'border-purple-400 ring-2 ring-purple-300 shadow-md bg-purple-50'
+                        : 'border-gray-100 hover:border-purple-200 hover:shadow-md')
+                      : (hasCompletedOrders
+                        ? 'border-green-200 hover:shadow-md hover:-translate-y-0.5'
+                        : hasPendingOrders
+                          ? 'border-red-200 hover:shadow-md hover:-translate-y-0.5'
+                          : 'border-gray-100 hover:shadow-md hover:-translate-y-0.5'))}>
+                  {/* 상태 dot 또는 합석 체크마크 */}
+                  {isMergeMode ? (
+                    <div className={'absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ' +
+                      (isMergeSelected ? 'bg-purple-500 text-white' : 'bg-gray-200 text-gray-400')}>
+                      {isMergeSelected ? '✓' : ''}
+                    </div>
+                  ) : (
+                    <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' +
+                      (hasCompletedOrders ? 'bg-green-400' : hasPendingOrders ? 'bg-red-400 animate-pulse' : 'bg-gray-300')}></div>
+                  )}
                   <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.name}</div>
                   <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' +
-                    (hasCompletedOrders ? 'text-green-500' : hasPendingOrders ? 'text-red-500' : 'text-gray-500')}>
-                    {hasCompletedOrders ? '조리 완료' : hasPendingOrders ? '주문 대기' : '사용 가능'}
+                    (isMergeMode && isMergeSelected
+                      ? 'text-purple-600'
+                      : hasCompletedOrders ? 'text-green-500' : hasPendingOrders ? 'text-red-500' : 'text-gray-500')}>
+                    {isMergeMode && isMergeSelected
+                      ? '합석 선택됨'
+                      : hasCompletedOrders ? '조리 완료' : hasPendingOrders ? '주문 대기' : '사용 가능'}
                   </div>
                   {total > 0 && (
                     <div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5">{total.toLocaleString()} VND</div>
@@ -450,6 +598,146 @@ export default function StaffPos() {
           </div>
         </main>
         {message && (<div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
+      </div>
+    );
+  }
+
+  // ==================== 합석 주문내역 뷰 ====================
+  if (currentView === 'merged-orders') {
+    // 선택된 모든 테이블의 UUID 목록
+    const mergedUuids = mergedTables
+      .map(ts => tables.find(t => t.name.replace(/\D/g, '') === ts)?.id)
+      .filter((id): id is string => !!id);
+
+    // 합산 주문 + 합계
+    const mergedAllOrders = allOrders.filter(o =>
+      mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed')
+    );
+    const mergedGrandTotal = mergedAllOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    const mergedHasPending = mergedAllOrders.some(o => o.status === 'pending');
+
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        <header className="bg-white border-b border-[#E5E7EB] px-4 py-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button onClick={exitMergedOrders} className="text-gray-400 hover:text-[#111827] transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div>
+                <h1 className="text-lg font-bold text-[#111827]">합석 주문</h1>
+                <p className="text-xs text-purple-500">Table {mergedTables.join(' + ')} · {mergedTables.length}개 테이블</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">합석 모드</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-3 space-y-3 max-w-3xl mx-auto w-full pb-28">
+          {mergedTables.map(ts => {
+            const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === ts)?.id;
+            if (!tableUuid) return null;
+            const tableOrders = allOrders.filter(o => o.table_id === tableUuid && (o.status === 'pending' || o.status === 'completed'));
+            const tableTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+            const hasPending = tableOrders.some(o => o.status === 'pending');
+            if (tableOrders.length === 0) return null;
+            return (
+              <div key={ts} className={'bg-white rounded-xl shadow-sm border overflow-hidden ' + (hasPending ? 'border-amber-100' : 'border-green-100')}>
+                <div className={'px-4 py-3 border-b flex items-center justify-between ' + (hasPending ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100')}>
+                  <div className="flex items-center gap-2">
+                    <span className={'w-2 h-2 rounded-full ' + (hasPending ? 'bg-amber-400 animate-pulse' : 'bg-green-400')}></span>
+                    <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-700' : 'text-green-700')}>Table {ts}</span>
+                    <span className={'text-xs ' + (hasPending ? 'text-amber-500' : 'text-green-500')}>{hasPending ? '주방 대기 중' : '조리 완료'}</span>
+                  </div>
+                  <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-600' : 'text-green-600')}>
+                    {tableTotal.toLocaleString()} VND
+                  </span>
+                </div>
+                <div>
+                  {tableOrders.flatMap(order =>
+                    allOrderItems.filter(i => i.order_id === order.id).map(item => {
+                      const product = products.find(p => p.id === item.product_id);
+                      const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                      return (
+                        <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
+                          <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {product?.image_url
+                              ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                              : <span className="text-[8px] text-gray-300">-</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                            <p className="text-[10px] text-gray-400">{unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>
+                            {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
+                          </div>
+                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {mergedAllOrders.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <span className="text-5xl mb-3">📭</span>
+              <p>선택된 테이블에 주문이 없습니다</p>
+            </div>
+          )}
+        </main>
+
+        {/* 하단 합계 + 결제 버튼 */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-2 shadow-lg z-30">
+          <div className="flex-1 flex items-center justify-between px-2">
+            <div>
+              <span className="text-sm text-gray-600">합산 금액</span>
+              <span className="ml-2 text-xs text-purple-500">({mergedTables.length}개 테이블)</span>
+            </div>
+            <span className="text-lg font-bold text-purple-600">{mergedGrandTotal.toLocaleString()} VND</span>
+          </div>
+          <button onClick={() => setShowMergedPaymentModal(true)}
+            disabled={!mergedHasPending || mergedAllOrders.length === 0}
+            className="px-5 py-2.5 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors">
+            합석 결제
+          </button>
+        </div>
+
+        {/* 합석 결제 수단 모달 */}
+        {showMergedPaymentModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-[#111827]">합석 결제 수단</h3>
+                <p className="text-sm text-gray-400">
+                  Table {mergedTables.join(' + ')} · {mergedGrandTotal.toLocaleString()} VND
+                </p>
+              </div>
+              <div className="p-4 space-y-2">
+                {[
+                  { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
+                  { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
+                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer' },
+                ].map(m => (
+                  <button key={m.key} onClick={() => completeMergedPayment(m.key)}
+                    className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
+                    <span className="text-2xl">{m.icon}</span>
+                    <div><p className="font-semibold text-[#111827]">{m.name}</p><p className="text-xs text-gray-400">{m.sub}</p></div>
+                  </button>
+                ))}
+              </div>
+              <div className="p-4 bg-gray-50 border-t border-gray-100">
+                <button onClick={() => setShowMergedPaymentModal(false)}
+                  className="w-full text-gray-400 hover:text-[#374151] py-2 text-sm font-medium">취소</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
     );
   }
