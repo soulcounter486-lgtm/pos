@@ -18,7 +18,7 @@ type OrderItem = {
 type Order = {
   id: string;
   table_id: string;
-  total_amount: number;
+  total: number;
   status: string;
   created_at: string;
   order_items: OrderItem[];
@@ -32,20 +32,83 @@ export default function KitchenOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notification, setNotification] = useState<{show: boolean; tableId: string; orderId: string; type?: string} | null>(null);
 
   useEffect(() => {
-    const storedAuth = localStorage.getItem('auth');
-    if (storedAuth) {
-      const parsed = JSON.parse(storedAuth);
-      if (parsed.role !== 'kitchen') {
+    // 클라이언트 사이드에서만 localStorage 접근
+    if (typeof window !== 'undefined') {
+      const storedAuth = localStorage.getItem('auth');
+      if (storedAuth) {
+        try {
+          const parsed = JSON.parse(storedAuth);
+          if (parsed.role !== 'kitchen') {
+            router.push('/login-kitchen');
+            return;
+          }
+        } catch (e) {
+          console.error('Auth parsing error:', e);
+          localStorage.removeItem('auth');
+          router.push('/login-kitchen');
+          return;
+        }
+      } else {
         router.push('/login-kitchen');
         return;
       }
-    } else {
-      router.push('/login-kitchen');
-      return;
+      fetchOrders();
+      
+      // Supabase 실시간 구독 설정
+      const supabase = getSupabase();
+      
+      // orders 테이블 변경 감지
+      const ordersSubscription = supabase
+        .channel('orders-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // INSERT, UPDATE, DELETE 모두 감지
+            schema: 'public',
+            table: 'orders'
+          },
+          (payload) => {
+            console.log('주문 변경 감지:', payload);
+            fetchOrders(); // 데이터 새로고침
+            
+            // 새 주문이 추가되면 알림 표시
+            if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+              showNewOrderNotification(payload.new);
+            }
+            // 기존 주문이 업데이트되면 알림 표시 (수량 변경 등)
+            else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
+              showOrderUpdateNotification(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
+      // order_items 테이블 변경 감지 (수량 변경 등)
+      const orderItemsSubscription = supabase
+        .channel('order-items-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'order_items'
+          },
+          (payload) => {
+            console.log('주문 항목 변경 감지:', payload);
+            fetchOrders(); // 데이터 새로고침
+          }
+        )
+        .subscribe();
+
+      // 컴포넌트 언마운트 시 구독 해제
+      return () => {
+        supabase.removeChannel(ordersSubscription);
+        supabase.removeChannel(orderItemsSubscription);
+      };
     }
-    fetchOrders();
   }, [router, activeTab]);
 
   async function fetchOrders() {
@@ -90,7 +153,7 @@ export default function KitchenOrders() {
       const processedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.id,
         table_id: order.table_id,
-        total_amount: order.total_amount,
+        total: order.total,
         status: order.status,
         created_at: order.created_at,
         order_items: (order.order_items || []).map((item: any) => {
@@ -114,15 +177,63 @@ export default function KitchenOrders() {
     }
   }
 
+  function showNewOrderNotification(order: any) {
+    console.log('새 주문 알림:', order);
+    setNotification({
+      show: true,
+      tableId: order.table_id,
+      orderId: order.id,
+      type: 'new'
+    });
+    
+    // 5초 후 알림 자동 숨김
+    setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+  }
+
+  function showOrderUpdateNotification(order: any) {
+    console.log('주문 업데이트 알림:', order);
+    setNotification({
+      show: true,
+      tableId: order.table_id,
+      orderId: order.id,
+      type: 'update'
+    });
+    
+    // 5초 후 알림 자동 숨김
+    setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+  }
+
+  function closeNotification() {
+    setNotification(null);
+  }
+
   async function markOrderComplete(orderId: string) {
     try {
+      console.log('=== markOrderComplete 시작 ===');
+      console.log('주문 ID:', orderId);
+      
       const supabase = getSupabase();
 
-      await supabase
+      // 주문 상태를 completed로 업데이트
+      console.log('주문 상태를 completed로 업데이트 중...');
+      const { error: updateError } = await supabase
         .from('orders')
         .update({ status: 'completed' })
         .eq('id', orderId);
 
+      if (updateError) {
+        console.error('주문 상태 업데이트 실패:', updateError);
+        alert('주문 상태 업데이트 실패');
+        return;
+      }
+
+      console.log('주문 상태 업데이트 완료');
+      console.log('=== markOrderComplete 완료 ===');
+      
       fetchOrders();
     } catch (error) {
       console.error('Error completing order:', error);
@@ -135,6 +246,54 @@ export default function KitchenOrders() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* 주문 알림 */}
+      {notification && notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className={`text-white px-6 py-4 rounded-lg shadow-xl max-w-sm ${
+            notification.type === 'new' 
+              ? 'bg-gradient-to-r from-blue-500 to-blue-600' 
+              : 'bg-gradient-to-r from-green-500 to-green-600'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-xl">
+                    {notification.type === 'new' ? '🔔' : '✏️'}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">
+                    {notification.type === 'new' ? '새 주문 도착!' : '주문 업데이트!'}
+                  </h3>
+                  <p className="text-sm opacity-90">
+                    {notification.type === 'new' 
+                      ? `테이블 ${notification.tableId}에서 새 주문이 들어왔습니다.`
+                      : `테이블 ${notification.tableId}의 주문이 업데이트되었습니다.`}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={closeNotification}
+                className="text-white/70 hover:text-white text-xl ml-4"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button 
+                onClick={() => {
+                  setActiveTab('pending');
+                  closeNotification();
+                }}
+                className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                확인하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>

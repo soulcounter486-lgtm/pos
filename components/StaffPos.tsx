@@ -6,12 +6,15 @@ import { getSupabase } from '@/lib/supabaseClient';
 type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string };
 type CartItem = Product & { quantity: number };
 type Table = { id: string; name: string; status: string };
-type OrderData = { id: string; table_id: string; total_amount: number; status: string; created_at: string };
+type OrderData = { id: string; table_id: string; total: number; status: string; created_at: string; total_amount?: number; tax_amount?: number };
 type OrderItemData = { id: string; order_id: string; product_id: string; quantity: number; price: number; status: string };
+type EditingOrderItem = { itemId: string; newQuantity: number };
 
 export default function StaffPos() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [editingQuantityId, setEditingQuantityId] = useState<string | null>(null);
+  const [quantityInput, setQuantityInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +24,7 @@ export default function StaffPos() {
   const [message, setMessage] = useState<string | null>(null);
   const [allOrders, setAllOrders] = useState<OrderData[]>([]);
   const [allOrderItems, setAllOrderItems] = useState<OrderItemData[]>([]);
+  const [editingOrderItem, setEditingOrderItem] = useState<EditingOrderItem | null>(null);
   const [currentView, setCurrentView] = useState<'orders' | 'menu'>('orders');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
@@ -48,6 +52,16 @@ export default function StaffPos() {
     if (isOrderComplete) { setIsOrderComplete(false); setSelectedTable(null); setMessage(null); }
   }, [isOrderComplete]);
 
+  // 메시지 자동 삭제 타이머
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 3000); // 3초 후 메시지 자동 삭제
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   async function loadAllData() { await Promise.all([fetchProducts(), fetchTables(), fetchOrders()]); setDataLoaded(true); }
   async function fetchProducts() {
     setLoading(true);
@@ -70,13 +84,138 @@ export default function StaffPos() {
     } catch (e) { console.error('Orders error:', e); }
   }
 
+  function startEditingOrderItem(itemId: string, currentQuantity: number) {
+    setEditingOrderItem({ itemId, newQuantity: currentQuantity });
+  }
+
+  async function saveOrderItemQuantity(itemId: string, orderItemId: string, currentQuantity: number, newQuantity: number) {
+    if (newQuantity <= 0) {
+      setMessage('수량은 1 이상이어야 합니다.');
+      return;
+    }
+
+    const orderItem = allOrderItems.find(i => i.id === orderItemId);
+    if (!orderItem) {
+      setMessage('주문 항목을 찾을 수 없습니다.');
+      return;
+    }
+
+    const product = products.find(p => p.id === orderItem.product_id);
+    if (!product) {
+      setMessage('상품을 찾을 수 없습니다.');
+      return;
+    }
+
+    // 수량 변경량 계산
+    const quantityChange = newQuantity - currentQuantity;
+    
+    // 재고 확인 (수량 증가 시에만)
+    if (quantityChange > 0 && product.stock < quantityChange) {
+      setMessage('재고가 부족합니다.');
+      return;
+    }
+
+    const s = getSupabase();
+    
+    try {
+      if (newQuantity === 0) {
+        // 수량이 0이면 항목 삭제
+        const { error } = await s.from('order_items').delete().eq('id', orderItemId);
+        if (error) {
+          setMessage('주문 항목 삭제 실패: ' + error.message);
+          return;
+        }
+        setMessage('주문 항목이 삭제되었습니다.');
+      } else {
+        // 기존 항목의 수량과 가격 업데이트 (수량 * 단가)
+        const newPrice = product.price * newQuantity;
+        console.log('수량 업데이트 시작:', {
+          orderItemId,
+          currentQuantity,
+          newQuantity,
+          productPrice: product.price,
+          newPrice
+        });
+        
+        // 1. order_items 업데이트
+        const { error: updateError } = await s.from('order_items').update({ 
+          quantity: newQuantity,
+          price: newPrice 
+        }).eq('id', orderItemId);
+        
+        if (updateError) {
+          console.error('수량 업데이트 실패:', updateError);
+          setMessage('수량 업데이트 실패: ' + updateError.message);
+          return;
+        }
+        
+        console.log('order_items 업데이트 성공');
+        
+        // 2. 해당 주문의 모든 항목 가격 합계 계산
+        console.log('주문 총액 계산 시작, order_id:', orderItem.order_id);
+        const { data: items, error: itemsError } = await s.from('order_items').select('price').eq('order_id', orderItem.order_id);
+        
+        if (itemsError) {
+          console.error('항목 조회 실패:', itemsError);
+          // 계속 진행
+        }
+        
+        console.log('항목 조회 결과:', items);
+        const totalAmount = items?.reduce((sum, item) => sum + item.price, 0) || 0;
+        console.log('계산된 총액:', totalAmount);
+        
+        // 3. 주문 총액 업데이트 (created_at도 업데이트하여 최신순 정렬)
+        const { error: orderUpdateError } = await s.from('orders').update({ 
+          created_at: new Date().toISOString(), // 최신순 정렬을 위해 시간 업데이트
+          total: totalAmount,
+          total_amount: totalAmount 
+        }).eq('id', orderItem.order_id);
+        
+        if (orderUpdateError) {
+          console.error('주문 업데이트 실패:', orderUpdateError);
+          // 계속 진행
+        }
+        
+        console.log('orders 업데이트 성공');
+        setMessage('수량과 금액이 업데이트되었습니다.');
+      }
+      
+      // 4. 데이터 새로고침
+      console.log('데이터 새로고침 시작');
+      await fetchOrders();
+      await fetchProducts();
+      console.log('데이터 새로고침 완료');
+      
+    } catch (error) {
+      console.error('수량 업데이트 중 예외 발생:', error);
+      setMessage('수량 업데이트 중 오류가 발생했습니다.');
+    } finally {
+      setEditingOrderItem(null);
+    }
+  }
+
+  function cancelEditingOrderItem() {
+    setEditingOrderItem(null);
+  }
+
+  async function updateOrderItemQuantity(orderId: string, orderItemId: string, currentQuantity: number, delta: number) {
+    const newQuantity = currentQuantity + delta;
+    if (newQuantity <= 0) {
+      setMessage('수량은 1 이상이어야 합니다.');
+      return;
+    }
+    await saveOrderItemQuantity(orderItemId, orderItemId, currentQuantity, newQuantity);
+  }
+
   function navigateTo(view: 'orders' | 'menu') {
     setCurrentView(view);
     window.history.pushState({ ts: selectedTable, view }, '', `/staff?table=${selectedTable}&view=${view}`);
   }
 
   function selectTable(tableId: string) {
-    const hasOrder = (tableOrderInfo[tableId]?.orders.length || 0) > 0;
+    // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
+    const tableOrders = allOrders.filter(order => String(order.table_id) === tableId);
+    const hasOrder = tableOrders.length > 0;
     const view = hasOrder ? 'orders' : 'menu';
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
     setSelectedTable(tableId); setCurrentView(view);
@@ -101,15 +240,20 @@ export default function StaffPos() {
     finally { setLoading(false); }
   }
 
-  const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number }> = useMemo(() => {
-    const info: Record<string, { orders: OrderData[]; totalAmount: number }> = {};
-    allOrders.forEach(order => {
+const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number }> = useMemo(() => {
+  const info: Record<string, { orders: OrderData[]; totalAmount: number }> = {};
+  allOrders
+    .filter(order => order.status === 'pending')
+    .forEach(order => {
       const key = String(order.table_id);
       if (!info[key]) info[key] = { orders: [], totalAmount: 0 };
-      info[key].orders.push(order); info[key].totalAmount += order.total_amount;
+      info[key].orders.push(order);
+      // Use total_amount if available, otherwise fall back to total
+      const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
+      info[key].totalAmount += orderTotal;
     });
-    return info;
-  }, [allOrders]);
+  return info;
+}, [allOrders]);
 
   function addToCart(product: Product) {
     if (product.stock <= 0) { setMessage('재고가 부족합니다.'); return; }
@@ -123,26 +267,110 @@ export default function StaffPos() {
       return i;
     }));
   }
+
+  function startEditingQuantity(productId: string, currentQuantity: number) {
+    setEditingQuantityId(productId);
+    setQuantityInput(currentQuantity.toString());
+  }
+
+  function saveQuantity(productId: string) {
+    const newQuantity = parseInt(quantityInput);
+    if (isNaN(newQuantity) || newQuantity < 1) {
+      setMessage('유효한 수량을 입력해주세요.');
+      return;
+    }
+    
+    setCart(cart.map(i => {
+      if (i.id === productId) {
+        if (newQuantity > i.stock) {
+          setMessage('재고가 부족합니다.');
+          return i;
+        }
+        return { ...i, quantity: newQuantity };
+      }
+      return i;
+    }));
+    
+    setEditingQuantityId(null);
+    setQuantityInput('');
+  }
+
+  function cancelEditing() {
+    setEditingQuantityId(null);
+    setQuantityInput('');
+  }
   function removeFromCart(productId: string) { setCart(cart.filter(i => i.id !== productId)); }
 
   async function submitOrder() {
+    // Ensure a table is selected before attempting to create an order.
+    if (!selectedTable) {
+      setMessage('테이블을 선택하세요');
+      return;
+    }
     if (cart.length === 0) return;
     const sub = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-    const tax = sub * 0.1; const total = sub + tax;
+    
+    // Calculate tax based on product tax rates (use category default if product doesn't have tax_rate)
+    const tax = cart.reduce((totalTax, item) => {
+      const itemSubtotal = item.price * item.quantity;
+      // Use product tax_rate if available, otherwise default to 10%
+      const taxRate = item.tax_rate || 0.1;
+      return totalTax + (itemSubtotal * taxRate);
+    }, 0);
+    
+    const total = sub + tax;
     setLoading(true);
     try {
       const s = getSupabase();
-      const { data: od, error: oe } = await s.from('orders').insert({
-        table_id: selectedTable, total_amount: total, status: 'pending', payment_method: 'card', include_tax: true, subtotal: sub, tax_amount: tax
-      }).select().single();
+       // Insert a new order with actual database column names
+       const { data: od, error: oe } = await s.from('orders').insert({
+         table_id: selectedTable,
+         total_amount: total,  // actual column name is total_amount
+         status: 'pending',
+         payment_method: 'card',
+         subtotal: sub,
+         tax_amount: tax,      // actual column name is tax_amount
+         include_tax: true     // actual column in database
+       }).select().single();
       if (oe) throw oe;
-      await s.from('order_items').insert(cart.map(i => ({ order_id: od.id, product_id: i.id, quantity: i.quantity, price: i.price, status: 'pending' })));
+       // Insert each cart item as an order_item.
+       // The actual database only has 'price' column, not 'unit_price'
+       await s.from('order_items').insert(
+         cart.map(i => ({
+           order_id: od.id,
+           product_id: i.id,
+           quantity: i.quantity,
+           price: i.price,
+         }))
+       );
       setCart([]); setMessage('주문이 완료되었습니다!'); await fetchOrders(); navigateTo('orders');
-    } catch (e) { setMessage('주문 처리 중 오류 발생'); }
+    } catch (e) {
+      // Log the full error for debugging and surface a more informative message to the user.
+      console.error('주문 처리 중 오류 발생:', e);
+      // Attempt to extract a readable message from the error object.
+      let errMsg = '';
+      if (e instanceof Error) {
+        errMsg = e.message;
+      } else if (typeof e === 'object' && e !== null && 'message' in e) {
+        // @ts-ignore – dynamic property access
+        errMsg = e.message;
+      } else {
+        errMsg = JSON.stringify(e);
+      }
+      setMessage('주문 처리 중 오류 발생: ' + errMsg);
+    }
     finally { setLoading(false); }
   }
 
-  const cartTotal = useMemo(() => { const s = cart.reduce((a, i) => a + i.price * i.quantity, 0); return s + s * 0.1; }, [cart]);
+  const cartTotal = useMemo(() => {
+    const subtotal = cart.reduce((a, i) => a + i.price * i.quantity, 0);
+    const tax = cart.reduce((totalTax, item) => {
+      const itemSubtotal = item.price * item.quantity;
+      const taxRate = item.tax_rate || 0.1;
+      return totalTax + (itemSubtotal * taxRate);
+    }, 0);
+    return subtotal + tax;
+  }, [cart]);
   const categories = useMemo(() => ['all', ...new Set(products.map(p => p.category))], [products]);
   const filteredProducts = useMemo(() => {
     let f = products;
@@ -153,7 +381,10 @@ export default function StaffPos() {
 
   function issueReceipt(orders: OrderData[]) {
     if (orders.length === 0) return;
-    const total = orders.reduce((s, o) => s + o.total_amount, 0);
+    const total = orders.reduce((s, o) => {
+      // Use total_amount if available, otherwise fall back to total
+      return s + (o.total_amount !== undefined ? o.total_amount : o.total);
+    }, 0);
     let r = '\n==============================\n         POS 가영수증\n==============================\n\n';
     r += '테이블: ' + selectedTable + '\n시간: ' + new Date().toLocaleString('ko-KR') + '\n주문: ' + orders.length + '건\n\n------------------------------\n';
     orders.forEach((o, i) => {
@@ -162,7 +393,8 @@ export default function StaffPos() {
         const p = products.find(pr => pr.id === item.product_id);
         r += '  ' + (p?.name || '상품') + ' x' + item.quantity + ' - ' + (item.price * item.quantity).toLocaleString() + ' VND\n';
       });
-      r += '  소계: ' + o.total_amount.toLocaleString() + ' VND\n';
+      const orderTotal = o.total_amount !== undefined ? o.total_amount : o.total;
+      r += '  소계: ' + orderTotal.toLocaleString() + ' VND\n';
     });
     r += '\n------------------------------\n합계: ' + total.toLocaleString() + ' VND\n==============================\n';
     alert(r);
@@ -173,7 +405,10 @@ export default function StaffPos() {
     const orders = pendingOrders;
     const tableId = selectedTable;
     if (!tableId || orders.length === 0) return;
-    const total = orders.reduce((s, o) => s + o.total_amount, 0);
+    const total = orders.reduce((s, o) => {
+      // Use total_amount if available, otherwise fall back to total
+      return s + (o.total_amount !== undefined ? o.total_amount : o.total);
+    }, 0);
     const orderIds = orders.map(o => o.id);
 
     setLoading(true);
@@ -182,6 +417,10 @@ export default function StaffPos() {
 
       // 1. 판매내역 저장 (실패해도 계속)
       try {
+        // Insert a sales record. The schema defines the column name as `total_amount`.
+        // Previously the code attempted to insert a non‑existent `total` column, which caused
+        // a runtime error during payment processing. We now map the calculated total to the
+        // correct column name.
         const { data, error } = await supabase
           .from('sales')
           .insert({
@@ -191,7 +430,7 @@ export default function StaffPos() {
             order_count: orders.length
           });
         console.log('Sales insert attempt completed');
-      } catch (e) {
+      } catch (e: any) { // Cast 'e' to 'any' to resolve type error
         console.error('Sales insert error:', e.message);
         setMessage('판매내역 저장 실패');
       }
@@ -213,69 +452,25 @@ export default function StaffPos() {
         await supabase.from('order_items').update({ status: 'completed' }).in('order_id', orderIds);
       }
 
-      // 4. 테이블 상태 초기화 (status 컬럼만 사용)
-      const { data: tableRecord, error: tableFetchErr } = await supabase
-        .from('tables')
-        .select('status')
-        .eq('id', String(tableId))
-        .single();
-
-      if (tableFetchErr) {
-        console.error('테이블 조회 실패:', tableFetchErr);
-        throw tableFetchErr;
-      }
-
-      // 현재 상태 확인
-      const currentStatus: string | null = tableRecord ? tableRecord.status : null;
-      if (currentStatus === null) {
-        console.error('테이블 레코드가 없거나 status 컬럼이 없습니다.', tableRecord);
-        throw new Error('테이블 레코드 또는 status 컬럼 없음');
-      }
-
-      console.log('테이블 전 상태:', currentStatus);
-
-      // 상태 업데이트 to "available"
-      const { data: tableUpdated, error: tableUpdateErr } = await supabase
-        .from('tables')
-        .update({ status: 'available' })
-        .eq('id', String(tableId))
-        .single();
-
-      if (tableUpdateErr) {
-        console.error('테이블 상태 업데이트 실패:', tableUpdateErr);
-        throw tableUpdateErr;
-      }
-
-      console.log('테이블 후 상태:', (tableUpdated as any).status);
-
-      // 상태 업데이트
-      const updatePayload: any = {};
-      updatePayload[statusColumn] = 'available';
-      const { data: tableUpdated, error: tableUpdateErr } = await supabase
-        .from('tables')
-        .update(updatePayload)
-        .eq('id', String(tableId))
-        .single();
-
-      if (tableUpdateErr) {
-        console.error('테이블 상태 업데이트 실패:', tableUpdateErr);
-        throw tableUpdateErr;
-      }
-
-      console.log('테이블 후 상태:', tableUpdated[statusColumn]);
+      // 4. 테이블 상태는 변경하지 않음 - 테이블 상태는 테이블 페이지에서만 관리
+      console.log('결제 완료. 테이블 상태는 변경하지 않습니다.');
 
       // 5. UI 업데이트
       setSelectedTable(null);
       setCurrentView('orders');
       setPendingOrders([]);
       setMessage('결제 완료!');
+// Reset UI state after successful payment
+setSelectedTable(null);
+setCurrentView('orders');
+setPendingOrders([]);
 
       await fetchOrders();
       await fetchTables();
 
       // 뒤로가기 방지용으로 URL 변경
       window.history.replaceState({ main: true }, '', '/staff');
-    } catch (e) {
+    } catch (e: any) {
       console.error('결제 에러:', e);
       setSelectedTable(null);
       setCurrentView('orders');
@@ -324,11 +519,15 @@ export default function StaffPos() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
             {tables.sort((a, b) => Number(a.id) - Number(b.id)).map(table => {
               const ts = String(table.id);
-              const oi = tableOrderInfo[ts];
-              const hasOrder = (oi?.orders.length || 0) > 0;
-              const totalOrders = oi?.orders.length || 0;
-              const pending = oi?.orders.filter(o => o.status === 'pending').length || 0;
-              const total = oi?.totalAmount || 0;
+              // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
+              const tableOrders = allOrders.filter(order => String(order.table_id) === ts);
+              const hasOrder = tableOrders.length > 0;
+              const totalOrders = tableOrders.length;
+              const pending = tableOrders.filter(o => o.status === 'pending').length;
+              const total = tableOrders.reduce((sum, order) => {
+                const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
+                return sum + orderTotal;
+              }, 0);
               return (
                 <button key={table.id} onClick={() => selectTable(ts)}
                   className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasOrder ? 'border-red-200' : 'border-gray-100')}>
@@ -385,14 +584,17 @@ export default function StaffPos() {
                         {order.status === 'pending' ? '대기' : '완료'}
                       </span>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-[#111827]">{order.total_amount.toLocaleString()} VND</div>
+                      <div className="text-right">
+                      <div className="text-sm font-bold text-[#111827]">
+                        {(order.total_amount !== undefined ? order.total_amount : order.total).toLocaleString()} VND
+                      </div>
                       <div className="text-[10px] text-gray-400">{new Date(order.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
                   </div>
                   <div className="px-4 lg:px-5 pb-3 space-y-1 lg:space-y-1.5">
                     {items.map(item => {
                       const product = products.find(p => p.id === item.product_id);
+                      const isEditing = editingOrderItem?.itemId === item.id;
                       return (
                         <div key={item.id} className="flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5">
                           <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -402,7 +604,13 @@ export default function StaffPos() {
                             <p className="text-[11px] lg:text-xs font-medium text-[#374151] truncate">{product?.name || 'Unknown'}</p>
                             <p className="text-[9px] lg:text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
                           </div>
-                          <span className="text-xs lg:text-sm font-semibold text-[#111827]">x{item.quantity}</span>
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
+                            <button onClick={() => startEditingOrderItem(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
+                              {item.quantity}
+                            </button>
+                            <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
+                          </div>
                         </div>
                       );
                     })}
@@ -427,7 +635,9 @@ export default function StaffPos() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
               <div className="px-6 py-5 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-[#111827]">결제 수단</h3>
-                <p className="text-sm text-gray-400">Table {selectedTable} &#183; {pendingOrders.reduce((s, o) => s + o.total_amount, 0).toLocaleString()} VND</p>
+                <p className="text-sm text-gray-400">Table {selectedTable} &#183; {pendingOrders.reduce((s, o) => {
+                  return s + (o.total_amount !== undefined ? o.total_amount : o.total);
+                }, 0).toLocaleString()} VND</p>
               </div>
               <div className="p-4 space-y-2">
                 {[
@@ -525,10 +735,33 @@ export default function StaffPos() {
                   <p className="text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
                 </div>
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
-                  <span className="w-5 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
-                  <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                  {editingQuantityId === item.id ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={quantityInput}
+                        onChange={(e) => setQuantityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveQuantity(item.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                        min="1"
+                      />
+                      <button onClick={() => saveQuantity(item.id)} className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded flex items-center justify-center text-xs">✓</button>
+                      <button onClick={cancelEditing} className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
+                      <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
+                        {item.quantity}
+                      </button>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
+                      <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -567,10 +800,33 @@ export default function StaffPos() {
                   <p className="text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
                 </div>
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">-</button>
-                  <span className="w-5 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">+</button>
-                  <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                  {editingQuantityId === item.id ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={quantityInput}
+                        onChange={(e) => setQuantityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveQuantity(item.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                        min="1"
+                      />
+                      <button onClick={() => saveQuantity(item.id)} className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded flex items-center justify-center text-xs">✓</button>
+                      <button onClick={cancelEditing} className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">-</button>
+                      <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
+                        {item.quantity}
+                      </button>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">+</button>
+                      <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
