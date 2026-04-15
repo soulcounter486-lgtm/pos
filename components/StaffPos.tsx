@@ -262,11 +262,11 @@ export default function StaffPos() {
 
   function selectTable(tableId: string) {
     console.log('=== selectTable 시작 ===');
-    console.log('선택된 테이블:', tableId);
-    console.log('allOrders:', allOrders.map(o => ({ id: o.id, table_id: o.table_id })));
+    console.log('선택된 테이블:', tableId, typeof tableId);
+    console.log('allOrders table_id 타입 샘플:', allOrders.slice(0,3).map(o => ({ id: o.id, table_id: o.table_id, type: typeof o.table_id })));
     
     // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
-    const tableOrders = allOrders.filter(order => String(order.table_id) === tableId);
+    const tableOrders = allOrders.filter(order => String(order.table_id) === String(tableId));
     console.log('필터링된 주문:', tableOrders);
     
     const hasOrder = tableOrders.length > 0;
@@ -274,7 +274,7 @@ export default function StaffPos() {
     console.log('hasOrder:', hasOrder, 'view:', view);
     
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
-    setSelectedTable(tableId); setCurrentView(view);
+    setSelectedTable(String(tableId)); setCurrentView(view);
   }
 
   function goBack() {
@@ -570,7 +570,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
             {tables.sort((a, b) => Number(a.id) - Number(b.id)).map(table => {
               const ts = String(table.id);
               // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
-              const tableOrders = allOrders.filter(order => String(order.table_id) === ts);
+              const tableOrders = allOrders.filter(order => String(order.table_id) === String(ts));
               const hasOrder = tableOrders.length > 0;
               const totalOrders = tableOrders.length;
               const pending = tableOrders.filter(o => o.status === 'pending').length;
@@ -598,7 +598,8 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
 
   // ==================== 주문내역 ====================
   if (currentView === 'orders') {
-    const tableOrders = allOrders.filter(o => String(o.table_id) === selectedTable);
+    const tableOrders = allOrders.filter(o => String(o.table_id) === String(selectedTable));
+    console.log('주문내역 화면 - selectedTable:', selectedTable, 'tableOrders:', tableOrders);
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
