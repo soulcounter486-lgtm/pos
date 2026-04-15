@@ -976,7 +976,8 @@ export default function StaffPos() {
                     </div>
                     <div className="px-5 pb-5 space-y-2">
                       <button onClick={() => { setShowTransferQR(false); completePayment('transfer'); }}
-                        className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-colors">
+                        disabled={!hasBankInfo}
+                        className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors">
                         이체 완료 · 결제 처리
                       </button>
                       <button onClick={() => setShowTransferQR(false)}
