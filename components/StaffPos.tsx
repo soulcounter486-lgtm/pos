@@ -515,25 +515,20 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
       // 4. 테이블 상태는 변경하지 않음 - 테이블 상태는 테이블 페이지에서만 관리
       console.log('결제 완료. 테이블 상태는 변경하지 않습니다.');
 
-      // 5. UI 업데이트
+      // 5. UI 업데이트 - 테이블 선택 화면으로 돌아감
       setCurrentView('orders');
       setPendingOrders([]);
+      setSelectedTable(null);
       setMessage('결제 완료!');
       
-      // 주문완료 후에도 테이블을 선택한 상태로 유지하여 주문내역을 볼 수 있도록 함
       await fetchOrders();
-      await fetchTables();
-
-      // 뒤로가기 방지용으로 URL 변경
-      window.history.replaceState({ main: true }, '', '/staff');
     } catch (e: any) {
       console.error('결제 에러:', e);
       setCurrentView('orders');
       setPendingOrders([]);
+      setSelectedTable(null);
       setMessage('결제 오류: ' + (e.message || '알수없음'));
       await fetchOrders();
-      await fetchTables();
-      window.history.replaceState({ main: true }, '', '/staff');
     }
     finally { setLoading(false); }
   }
