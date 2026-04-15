@@ -409,50 +409,55 @@ export default function StaffPos() {
       .map(ts => tables.find(t => t.name.replace(/\D/g, '') === ts)?.id)
       .filter((id): id is string => !!id);
 
-    // 선택된 테이블의 모든 pending 주문
-    const mergedPending = allOrders.filter(o =>
-      mergedUuids.includes(o.table_id) &&
-      (o.status === 'pending' || o.status === 'completed')
+    // 결제 금액: pending 주문만 포함 (기존 단일 테이블 결제와 동일한 기준)
+    const pendingOrdersToSettle = allOrders.filter(o =>
+      mergedUuids.includes(o.table_id) && o.status === 'pending'
     );
-    const mergedOrderIds = mergedPending.map(o => o.id);
-    const grandTotal = mergedPending.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
-
-    if (mergedOrderIds.length === 0) {
-      setMessage('결제할 주문이 없습니다.');
+    if (pendingOrdersToSettle.length === 0) {
+      setMessage('결제할 대기 주문이 없습니다.');
       return;
     }
+    const pendingTotal = pendingOrdersToSettle.reduce(
+      (s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0
+    );
+    const pendingOrderIds = pendingOrdersToSettle.map(o => o.id);
+
+    // 테이블 초기화 대상: pending + completed(조리완료) 전부 삭제 → 사용 가능 상태로
+    const allActiveOrderIds = allOrders
+      .filter(o => mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed'))
+      .map(o => o.id);
 
     setLoading(true);
     try {
       const supabase = getSupabase();
 
-      // sales 테이블에 합산 기록 (첫 번째 테이블 UUID로)
+      // 1. sales 테이블에 합산 기록
       try {
         await supabase.from('sales').insert({
           table_id: mergedUuids[0],
-          total_amount: grandTotal,
+          total_amount: pendingTotal,
           payment_method: method,
-          order_count: mergedOrderIds.length
+          order_count: pendingOrderIds.length
         });
       } catch (e: unknown) { console.error('Sales insert error (merged):', e instanceof Error ? e.message : e); }
 
-      // 모든 선택 테이블의 주문을 completed 처리
-      const { error: ordersErr } = await supabase
-        .from('orders')
-        .update({ status: 'completed', payment_method: method })
-        .in('id', mergedOrderIds);
-      if (ordersErr) throw ordersErr;
+      // 2. 선택 테이블 order_items 전부 삭제
+      if (allActiveOrderIds.length > 0) {
+        await supabase.from('order_items').delete().in('order_id', allActiveOrderIds);
+      }
 
-      await supabase
-        .from('order_items')
-        .update({ status: 'completed' })
-        .in('order_id', mergedOrderIds);
+      // 3. 선택 테이블 orders 전부 삭제 → 테이블 사용 가능 상태로 초기화
+      if (allActiveOrderIds.length > 0) {
+        const { error: ordersDeleteErr } = await supabase
+          .from('orders').delete().in('id', allActiveOrderIds);
+        if (ordersDeleteErr) throw ordersDeleteErr;
+      }
 
-      // 상태 초기화
+      // 4. 상태 초기화
       setMergedTables([]);
       setIsMergeMode(false);
       setCurrentView('orders');
-      setMessage('합석 결제 완료!');
+      setMessage('합석 결제 완료! 테이블이 초기화되었습니다.');
       await fetchOrders();
     } catch (e: unknown) {
       console.error('합석 결제 에러:', e);
@@ -614,7 +619,10 @@ export default function StaffPos() {
       mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed')
     );
     const mergedGrandTotal = mergedAllOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
-    const mergedHasPending = mergedAllOrders.some(o => o.status === 'pending');
+    // 결제 금액은 pending 주문만 (기존 결제 기준과 일치)
+    const mergedPendingForPayment = mergedAllOrders.filter(o => o.status === 'pending');
+    const mergedPendingTotal = mergedPendingForPayment.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    const mergedHasPending = mergedPendingForPayment.length > 0;
 
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
@@ -694,13 +702,15 @@ export default function StaffPos() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-2 shadow-lg z-30">
           <div className="flex-1 flex items-center justify-between px-2">
             <div>
-              <span className="text-sm text-gray-600">합산 금액</span>
-              <span className="ml-2 text-xs text-purple-500">({mergedTables.length}개 테이블)</span>
+              <p className="text-sm text-gray-600">결제 금액 <span className="text-xs text-purple-400">({mergedTables.length}개 테이블 · 대기 주문)</span></p>
+              {mergedGrandTotal !== mergedPendingTotal && (
+                <p className="text-[10px] text-gray-400">전체 {mergedGrandTotal.toLocaleString()} VND</p>
+              )}
             </div>
-            <span className="text-lg font-bold text-purple-600">{mergedGrandTotal.toLocaleString()} VND</span>
+            <span className="text-lg font-bold text-purple-600">{mergedPendingTotal.toLocaleString()} VND</span>
           </div>
           <button onClick={() => setShowMergedPaymentModal(true)}
-            disabled={!mergedHasPending || mergedAllOrders.length === 0}
+            disabled={!mergedHasPending}
             className="px-5 py-2.5 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors">
             합석 결제
           </button>
@@ -713,7 +723,7 @@ export default function StaffPos() {
               <div className="px-6 py-5 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-[#111827]">합석 결제 수단</h3>
                 <p className="text-sm text-gray-400">
-                  Table {mergedTables.join(' + ')} · {mergedGrandTotal.toLocaleString()} VND
+                  Table {mergedTables.join(' + ')} · {mergedPendingTotal.toLocaleString()} VND
                 </p>
               </div>
               <div className="p-4 space-y-2">
