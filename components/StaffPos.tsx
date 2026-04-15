@@ -290,7 +290,6 @@ export default function StaffPos() {
         order_id: od.id,
         product_id: i.id,
         quantity: i.quantity,
-        unit_price: i.price,
         price: i.price * i.quantity,
         note: cartMemos[i.id] || null,
       }));
@@ -834,8 +833,54 @@ export default function StaffPos() {
       });
     };
 
+    const menuCartHeader = cart.length > 0 ? (
+      <div className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] shadow-sm px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-[#111827]">선택 메뉴</h2>
+          <span className="text-sm text-gray-500">{cart.reduce((s, i) => s + i.quantity, 0)}개</span>
+        </div>
+        {cart.length > 0 ? (
+          <div className="space-y-2 max-h-56 overflow-y-auto">
+            {cart.map(item => (
+              <div key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-100 px-3 py-2">
+                <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0">
+                  {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#111827] truncate">{item.name}</p>
+                  <p className="text-xs text-gray-500">{item.price.toLocaleString()} VND</p>
+                </div>
+                {editingQuantityId === item.id ? (
+                  <input
+                    type="number"
+                    value={quantityInput}
+                    onChange={e => setQuantityInput(e.target.value)}
+                    onBlur={() => saveQuantity(item.id)}
+                    onFocus={e => e.target.select()}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
+                    className="w-16 h-8 text-center text-sm border-2 border-blue-400 rounded-lg focus:outline-none"
+                    autoFocus
+                    min="1"
+                  />
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600">−</button>
+                    <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-10 h-8 rounded-lg bg-blue-50 text-blue-700 font-bold">{item.quantity}</button>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600">+</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">선택된 메뉴가 없습니다.</p>
+        )}
+      </div>
+    ) : null;
+
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+        {menuCartHeader}
         <header className="bg-white border-b border-[#E5E7EB] px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
