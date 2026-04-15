@@ -84,13 +84,8 @@ export default function StaffPos() {
       const { data: orders, error: ordersError } = await s.from('orders').select('*').order('created_at', { ascending: false });
       console.log('orders 조회 결과:', { orders, ordersError });
       
-      // order_items 조회 시 orders 테이블과 조인하여 table_id 정보를 가져오기
-      const { data: items, error: itemsError } = await s.from('order_items').select(`
-        *,
-        orders:order_id (
-          table_id
-        )
-      `);
+      // order_items 조회
+      const { data: items, error: itemsError } = await s.from('order_items').select('*');
       console.log('order_items 조회 결과:', { items, itemsError });
       
       if (ordersError) {
@@ -100,11 +95,15 @@ export default function StaffPos() {
         console.error('order_items 조회 오류:', itemsError);
       }
       
+      // orders 테이블의 데이터를 allOrders에 저장
       setAllOrders(orders || []); 
       setAllOrderItems(items || []);
+      
       console.log('데이터 상태 업데이트 완료:', { 
         ordersCount: orders?.length || 0, 
-        itemsCount: items?.length || 0 
+        itemsCount: items?.length || 0,
+        sampleOrders: orders?.slice(0, 3),
+        sampleItems: items?.slice(0, 3)
       });
     } catch (e) { 
       console.error('Orders error:', e); 
@@ -262,10 +261,18 @@ export default function StaffPos() {
   }
 
   function selectTable(tableId: string) {
+    console.log('=== selectTable 시작 ===');
+    console.log('선택된 테이블:', tableId);
+    console.log('allOrders:', allOrders.map(o => ({ id: o.id, table_id: o.table_id })));
+    
     // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
     const tableOrders = allOrders.filter(order => String(order.table_id) === tableId);
+    console.log('필터링된 주문:', tableOrders);
+    
     const hasOrder = tableOrders.length > 0;
     const view = hasOrder ? 'orders' : 'menu';
+    console.log('hasOrder:', hasOrder, 'view:', view);
+    
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
     setSelectedTable(tableId); setCurrentView(view);
   }
@@ -871,7 +878,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                       <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
                         {item.quantity}
                       </button>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">+</button>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
                       <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center text-red-400 text-xs ml-0.5">&#x2715;</button>
                     </>
                   )}
