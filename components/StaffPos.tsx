@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { QRCodeSVG } from 'qrcode.react';
 import ReceiptModal from '@/components/ReceiptModal';
@@ -72,21 +72,7 @@ export default function StaffPos() {
     }
   }, []);
 
-  // 테이블 선택 후 주문 없으면 메뉴로 자동 이동
-  useEffect(() => {
-    if (selectedTable && dataLoaded && currentView === 'orders') {
-      const selectedTableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
-      if (!selectedTableUuid) return;
-      const hasOrders = allOrders.some(o =>
-        o.table_id === selectedTableUuid &&
-        (String(o.status).toLowerCase() === 'completed' || String(o.status).toLowerCase() === 'pending')
-      );
-      if (!hasOrders) {
-        setCurrentView('menu');
-        window.history.replaceState({ ts: selectedTable, view: 'menu' }, '', `/staff?table=${selectedTable}&view=menu`);
-      }
-    }
-  }, [allOrders, selectedTable, dataLoaded, currentView, tables]);
+  // 자동 이동 effect 제거 — orders 뷰 빈 상태에서는 직접 버튼으로 메뉴 이동
 
   // isOrderComplete 이펙트 제거 — 주문 후 내비게이션은 submitOrder 내부에서 처리
 
@@ -271,12 +257,23 @@ export default function StaffPos() {
       const selectedTableId = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
       if (!selectedTableId) throw new Error('테이블을 찾을 수 없습니다: ' + selectedTable);
 
-      const { data: od, error: oe } = await s.from('orders').insert({
-        table_id: selectedTableId,
-        total_amount: total,
-        status: 'pending',
-      }).select().single();
-      if (oe) throw oe;
+      // 컬럼명 자동 감지: total_amount → total → 금액 없이
+      type InsertResult = { data: { id: string } | null; error: { code?: string; message?: string } | null };
+      const isColErr = (e: { code?: string; message?: string } | null) =>
+        !!e && (e.code === '42703' || /column.*does not exist|Could not find.*column/i.test(e.message || ''));
+
+      let od: { id: string } | null = null;
+      let oe: { code?: string; message?: string } | null = null;
+
+      ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total_amount: total, status: 'pending' }).select().single() as InsertResult);
+      if (isColErr(oe)) {
+        ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total: total, status: 'pending' }).select().single() as InsertResult);
+      }
+      if (isColErr(oe)) {
+        ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, status: 'pending' }).select().single() as InsertResult);
+      }
+      if (oe) throw new Error(oe.message || '주문 저장 오류');
+      if (!od) throw new Error('주문 생성 실패');
 
       // note 컬럼 포함 시도, 없으면 fallback
       const itemsWithNote = cart.map(i => ({
@@ -770,9 +767,13 @@ export default function StaffPos() {
             </div>
           </header>
           <main className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <span className="text-5xl mb-3 block">📭</span>
-              <p>주문 내역이 없습니다</p>
+            <div className="text-center">
+              <span className="text-5xl mb-4 block">📭</span>
+              <p className="text-gray-400 mb-6">주문 내역이 없습니다</p>
+              <button onClick={() => navigateTo('menu')}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
+                메뉴에서 주문하기
+              </button>
             </div>
           </main>
         </div>
