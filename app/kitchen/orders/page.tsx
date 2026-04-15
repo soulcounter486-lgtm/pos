@@ -141,13 +141,8 @@ export default function KitchenOrders() {
     try {
       setLoading(true);
       const supabase = getSupabase();
-      
-      // 메뉴 목록 가져오기 (이미지, 상품명, 카테고리)
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('id, name, image_url, category');
 
-      // Orders 가져오기
+      // Orders와 order_items, products를 Join해서 한 번에 가져오기
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
@@ -157,7 +152,12 @@ export default function KitchenOrders() {
             order_id,
             product_id,
             quantity,
-            price
+            price,
+            products (
+              name,
+              image_url,
+              category
+            )
           )
         `)
         .eq('status', activeTab)
@@ -170,27 +170,23 @@ export default function KitchenOrders() {
         return;
       }
 
-      // 메뉴 정보 매핑
-      const productsMap = new Map<string, any>();
-      productsData?.forEach((product: any) => {
-        productsMap.set(product.id, product);
-      });
-
+      // 데이터 가공
       const processedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.id,
         table_id: order.table_id,
         total: order.total,
         status: order.status,
         created_at: order.created_at,
-        order_items: (order.order_items || []).map((item: any) => {
-          const product = productsMap.get(item.product_id);
-          return {
-            ...item,
-            product_name: product?.name || 'Unknown',
-            product_image_url: product?.image_url || null,
-            category: product?.category || 'Unknown'
-          };
-        })
+        order_items: (order.order_items || []).map((item: any) => ({
+          id: item.id,
+          order_id: item.order_id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          product_name: item.products?.name || 'Unknown',
+          product_image_url: item.products?.image_url || null,
+          category: item.products?.category || 'Unknown'
+        }))
       }));
 
       console.log(`${activeTab} orders:`, processedOrders);

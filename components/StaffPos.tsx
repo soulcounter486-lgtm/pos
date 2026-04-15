@@ -48,7 +48,29 @@ export default function StaffPos() {
   }, [selectedTable]);
 
   useEffect(() => { loadAllData(); }, []);
-  
+
+  // 테이블 선택 후 주문 데이터 로드 완료 시 뷰 자동 조정 (UUID 기반)
+  useEffect(() => {
+    if (selectedTable && dataLoaded && currentView === 'orders') {
+      // 선택된 테이블 번호로 실제 UUID 찾기
+      const selectedTableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
+      if (!selectedTableUuid) {
+        console.warn('테이블 UUID를 찾을 수 없음:', selectedTable);
+        return;
+      }
+      const hasOrders = allOrders.some(o => 
+        o.table_id === selectedTableUuid && 
+        (String(o.status).toLowerCase() === 'completed' || String(o.status).toLowerCase() === 'pending')
+      );
+      
+      // 테이블에 주문이 없으면 메뉴로 이동
+      if (!hasOrders) {
+        setCurrentView('menu');
+        window.history.replaceState({ ts: selectedTable, view: 'menu' }, '', `/staff?table=${selectedTable}&view=menu`);
+      }
+    }
+  }, [allOrders, selectedTable, dataLoaded, currentView, tables]);
+
   // 디버그: tables 로드 후 로그
   useEffect(() => {
     console.log(' tables 로드됨:', tables);
@@ -104,20 +126,18 @@ export default function StaffPos() {
   }
 
   function selectTable(tableId: string) {
-    // 숫자만 추출해서 비교
+    // 테이블 ID에서 숫자만 추출
     const tableIdNum = tableId.replace(/\D/g, '');
-    // 완료된 주문만 필터링
-    const completedOrders = allOrders.filter(order => 
-      String(order.table_id).replace(/\D/g, '') === tableIdNum && 
-      order.status === 'completed'
-    );
     
-    // 완료된 주문 존재 여부에 따라 화면 전환
-    const hasCompletedOrders = completedOrders.length > 0;
-    const view = hasCompletedOrders ? 'orders' : 'menu';
-    
-    window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
-    setSelectedTable(String(tableId)); setCurrentView(view);
+    console.log('테이블 선택:', tableId, '->', tableIdNum);
+    console.log('현재 주문 데이터:', allOrders.length, '개');
+
+    // 테이블 선택하고 바로 orders 뷰로
+    setSelectedTable(tableIdNum);
+    setCurrentView('orders');
+
+    // URL 업데이트
+    window.history.pushState({ ts: tableId, view: 'orders' }, '', `/staff?table=${tableId}&view=orders`);
   }
 
   function goBack() {
@@ -125,17 +145,19 @@ export default function StaffPos() {
     window.history.replaceState({ main: true }, '', '/staff');
   }
 
-  async function deleteAllOrdersForTable(tableId: string) {
-    if (!confirm('테이블 ' + tableId + '의 모든 주문을 삭제하시겠습니까?')) return;
+  async function deleteAllOrdersForTable(tableUuid: string) {
+    if (!confirm('테이블의 모든 주문을 삭제하시겠습니까?')) return;
     setLoading(true);
     try {
       const s = getSupabase();
-      const { data: orders } = await s.from('orders').select('id').eq('table_id', tableId.replace(/\D/g, ''));
+      const { data: orders } = await s.from('orders').select('id').eq('table_id', tableUuid);
       const ids = orders?.map((o: any) => o.id) || [];
       if (ids.length > 0) await s.from('order_items').delete().in('order_id', ids);
-      const { error } = await s.from('orders').delete().eq('table_id', tableId.replace(/\D/g, ''));
-      if (error) throw error; setMessage('테이블 ' + tableId + ' 주문이 삭제되었습니다.'); await fetchOrders();
-    } catch (e) { setMessage('삭제 중 오류가 발생했습니다.'); }
+      const { error } = await s.from('orders').delete().eq('table_id', tableUuid);
+      if (error) throw error;
+      await fetchOrders();
+      setMessage('삭제되었습니다.');
+    } catch (e) { console.error(e); setMessage('삭제 실패'); }
     finally { setLoading(false); }
   }
 
@@ -222,9 +244,16 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
     setLoading(true);
     try {
       const s = getSupabase();
+        // ✅ 테이블 실제 UUID를 찾아서 저장
+        const selectedTableId = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
+        
+        if (!selectedTableId) {
+          throw new Error('테이블을 찾을 수 없습니다: ' + selectedTable);
+        }
+
         // Insert a new order with actual database column names
         const { data: od, error: oe } = await s.from('orders').insert({
-          table_id: selectedTable.replace(/\D/g, ''), // 숫자만 저장
+          table_id: selectedTableId, // ✅ 실제 테이블 UUID 저장
           total_amount: total,  // actual column name is total_amount
           status: 'pending',
           payment_method: 'card',
@@ -419,9 +448,9 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
               const bNum = bMatch ? parseInt(bMatch[0]) : 0;
               return aNum - bNum;
             }).map(table => {
-              const ts = table.name.replace(/\D/g, ''); // 숫자만 추출
-             // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
-             const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === String(ts));
+              const ts = table.name.replace(/\D/g, ''); // 숫자만 추출 (표시용)
+              // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함) - UUID로 직접 비교
+              const tableOrders = allOrders.filter(order => order.table_id === table.id);
              const hasOrder = tableOrders.length > 0;
              const totalOrders = tableOrders.length;
              const pending = tableOrders.filter(o => o.status === 'pending').length;
@@ -460,15 +489,91 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
     );
   }
 
-  // ==================== 주문내역 (완료된 주문만 표시) ====================
+  // ==================== 주문내역 (완료된 주문 + 대기 주문 표시) ====================
   if (currentView === 'orders') {
-    // 숫자만 추출해서 비교
-    const tableIdNum = selectedTable?.replace(/\D/g, '');
-    // 완료된 주문만 표시
-    const tableOrders = allOrders.filter(o => 
-      String(o.table_id).replace(/\D/g, '') === tableIdNum && 
-      o.status === 'completed'
-    );
+    console.log('=== orders 뷰 렌더링 ===', 'selectedTable:', selectedTable, 'dataLoaded:', dataLoaded);
+
+    // selectedTable이 없으면 메뉴 화면으로
+    if (!selectedTable) {
+      setCurrentView('menu');
+      return null;
+    }
+
+    // 데이터 로딩 중이면 로딩 표시
+    if (!dataLoaded) {
+      return (
+        <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+          <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-[#6B7280]">주문 내역을 불러오는 중...</p>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    // 선택된 테이블의 실제 UUID 찾기 (table_id는 UUID 형식)
+    const selectedTableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id || null;
+    
+    if (!selectedTableUuid) {
+      console.error('선택된 테이블 UUID를 찾을 수 없습니다:', selectedTable);
+      // 테이블 정보가 없으면 메뉴로
+      setCurrentView('menu');
+      return null;
+    }
+
+    console.log('선택된 테이블 UUID:', selectedTableUuid);
+
+    // ✅ 완료된 주문 + 대기 중인 주문 모두 표시 (pending, completed, waiting 모든 상태 포함)
+    const tableOrders = allOrders.filter(o => {
+      const status = String(o.status).toLowerCase().trim();
+      return o.table_id === selectedTableUuid && 
+             (status === 'completed' || status === 'pending' || status === 'waiting');
+    });
+    
+    console.log('테이블 주문 수:', tableOrders.length);
+
+    // 주문이 없으면 빈 화면 표시
+    if (tableOrders.length === 0) {
+      return (
+        <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+          <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div>
+                  <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+                  <p className="text-[10px] lg:text-xs text-gray-400">주문내역 0건</p>
+                </div>
+              </div>
+              <div></div>
+            </div>
+          </header>
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-400">
+              <span className="text-5xl mb-3 block">📭</span>
+              <p>주문 내역이 없습니다</p>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    console.log('주문 내역 화면 렌더링, 주문 수:', tableOrders.length);
+
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
@@ -482,7 +587,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                 <p className="text-[10px] lg:text-xs text-gray-400">주문내역 {tableOrders.length}건</p>
               </div>
             </div>
-            <button onClick={() => deleteAllOrdersForTable(selectedTable!)} disabled={tableOrders.length === 0}
+            <button onClick={() => deleteAllOrdersForTable(selectedTableUuid!)} disabled={tableOrders.length === 0}
               className="text-xs lg:text-sm text-red-400 hover:text-red-500 disabled:opacity-40 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-red-50 transition-colors">전체삭제</button>
           </div>
         </header>

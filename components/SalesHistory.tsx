@@ -15,9 +15,9 @@ type Order = {
   created_at: string;
   payment_method: string;
   subtotal: number;
-  tax: number;
-  total: number;
-  received_amount: number | null;
+  tax_amount: number;
+  total_amount: number;
+  received: number | null;
   change_amount: number | null;
   status: string;
   order_items: OrderItem[];
@@ -57,7 +57,7 @@ export default function SalesHistory() {
   }
 
   const totalSales = useMemo(
-    () => orders.reduce((sum, order) => sum + Number(order.total), 0),
+    () => orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
     [orders]
   );
 
@@ -95,7 +95,7 @@ export default function SalesHistory() {
           </div>
           <div className="rounded-3xl bg-slate-50 p-5">
             <p className="text-sm text-slate-500">총 매출</p>
-            <p className="mt-3 text-3xl font-semibold text-slate-900">{totalSales.toLocaleString()}원</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{totalSales.toLocaleString()} VND</p>
           </div>
         </div>
 
@@ -125,13 +125,15 @@ export default function SalesHistory() {
                     <td className="px-4 py-4 font-medium text-slate-900">{order.id.slice(0, 8)}</td>
                     <td className="px-4 py-4 text-slate-600">{order.payment_method === 'cash' ? '현금' : '카드'}</td>
                     <td className="px-4 py-4 text-slate-600">
-                      {order.order_items.map((item) => (
-                        <div key={item.id} className="mb-1">
-                          {item.quantity} x {(item.unit_price || 0).toLocaleString()}원
-                        </div>
-                      ))}
+                      <div className="flex flex-wrap gap-1">
+                        {order.order_items.map((item) => (
+                          <span key={item.id} className="inline-block bg-slate-100 px-2 py-1 rounded text-xs">
+                            {item.quantity} x {(item.unit_price || 0).toLocaleString()} VND
+                          </span>
+                        ))}
+                      </div>
                     </td>
-                    <td className="px-4 py-4 text-slate-900">{(order.total || 0).toLocaleString()}원</td>
+                    <td className="px-4 py-4 text-slate-900">{(order.total_amount || 0).toLocaleString()} VND</td>
                     <td className="px-4 py-4 text-slate-600">{order.status}</td>
                   </tr>
                 ))}

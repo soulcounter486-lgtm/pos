@@ -11,11 +11,13 @@ type Product = {
   barcode?: string;
   stock: number;
   image_url?: string;
+  tax_rate?: number;  // Added for tax management
 };
 
 type Category = {
   id: string;
   name: string;
+  tax_rate?: number;  // Added for tax management
 };
 
 type Table = {
@@ -38,9 +40,12 @@ export default function ProductAdmin() {
     barcode: '',
     stock: 0,
     image_url: '',
+    tax_rate: undefined as number | undefined,
   });
   const [categoryForm, setCategoryForm] = useState({
+    id: '',
     name: '',
+    tax_rate: 0.1, // Default 10% tax
   });
   const [tableForm, setTableForm] = useState({
     id: 0,
@@ -105,13 +110,14 @@ export default function ProductAdmin() {
       barcode: '', 
       stock: 0,
       image_url: '',
+      tax_rate: undefined,
     });
     setImageFile(null);
     setMessage(null);
   }
 
   function resetCategoryForm() {
-    setCategoryForm({ name: '' });
+    setCategoryForm({ id: '', name: '', tax_rate: 0 });
     setMessage(null);
   }
 
@@ -175,6 +181,7 @@ export default function ProductAdmin() {
       barcode: productForm.barcode || null,
       stock: productForm.stock,
       image_url: imageUrl || null,
+      tax_rate: productForm.tax_rate || null,
     };
 
     if (productForm.id) {
@@ -215,18 +222,47 @@ export default function ProductAdmin() {
     const supabase = getSupabase();
     const payload = {
       name: categoryForm.name,
+      tax_rate: categoryForm.tax_rate || 0.1,
     };
 
-    const { error } = await supabase.from('categories').insert(payload);
-    setLoading(false);
-    if (error) {
-      setMessage('카테고리 등록 중 오류가 발생했습니다.');
-      return;
+    if (categoryForm.id) {
+      // Update existing category
+      const { error } = await supabase
+        .from('categories')
+        .update(payload)
+        .eq('id', categoryForm.id);
+      setLoading(false);
+      if (error) {
+        setMessage('카테고리 수정 중 오류가 발생했습니다.');
+        return;
+      }
+      setMessage('카테고리가 수정되었습니다.');
+
+      // Update all products in this category
+      const { error: productUpdateError } = await supabase
+        .from('products')
+        .update({ tax_rate: categoryForm.tax_rate || 0.1 })
+        .eq('category', categoryForm.name);
+
+      if (productUpdateError) {
+        console.error('Error updating products tax_rate:', productUpdateError);
+      } else {
+        console.log(`Updated all products in category "${categoryForm.name}" to tax_rate ${categoryForm.tax_rate || 0.1}`);
+      }
+    } else {
+      // Insert new category
+      const { error } = await supabase.from('categories').insert(payload);
+      setLoading(false);
+      if (error) {
+        setMessage('카테고리 등록 중 오류가 발생했습니다.');
+        return;
+      }
+      setMessage('카테고리가 등록되었습니다.');
     }
 
-    setMessage('카테고리가 등록되었습니다.');
     resetCategoryForm();
     fetchCategories();
+    fetchProducts(); // Refresh product list to show updated tax rates
   }
 
   async function handleTableSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -316,6 +352,7 @@ export default function ProductAdmin() {
       barcode: product.barcode ?? '',
       stock: product.stock,
       image_url: product.image_url ?? '',
+      tax_rate: product.tax_rate,
     });
     setImageFile(null);
     setMessage('편집 모드입니다. 저장하면 수정됩니다.');
@@ -323,7 +360,11 @@ export default function ProductAdmin() {
   }
 
   function handleCategoryEdit(category: Category) {
-    setCategoryForm({ name: category.name });
+    setCategoryForm({ 
+      id: category.id,
+      name: category.name, 
+      tax_rate: category.tax_rate ?? 0
+    });
     setMessage('편집 모드입니다. 저장하면 수정됩니다.');
   }
 
@@ -339,6 +380,23 @@ export default function ProductAdmin() {
   const stockSummary = useMemo(() => {
     return products.reduce((acc, product) => acc + product.stock, 0);
   }, [products]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach(cat => map.set(cat.name, cat));
+    return map;
+  }, [categories]);
+
+  const getDisplayTaxRate = (product: Product) => {
+    if (product.tax_rate !== undefined && product.tax_rate !== null) {
+      return `${(product.tax_rate * 100).toFixed(1)}%`;
+    }
+    const category = categoryMap.get(product.category);
+    if (category && category.tax_rate !== undefined && category.tax_rate !== null) {
+      return `${(category.tax_rate * 100).toFixed(1)}%`;
+    }
+    return '기본';
+  };
 
   return (
     <div className="space-y-8">
@@ -424,8 +482,9 @@ export default function ProductAdmin() {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={productForm.price}
-                      onChange={(event) => setProductForm({ ...productForm, price: Number(event.target.value) })}
+                      value={productForm.price || ''}
+                      placeholder="0"
+                      onChange={(event) => setProductForm({ ...productForm, price: Number(event.target.value) || 0 })}
                       required
                     />
                   </label>
@@ -435,8 +494,9 @@ export default function ProductAdmin() {
                       className="input-base mt-2"
                       type="number"
                       min="0"
-                      value={productForm.stock}
-                      onChange={(event) => setProductForm({ ...productForm, stock: Number(event.target.value) })}
+                      value={productForm.stock || ''}
+                      placeholder="0"
+                      onChange={(event) => setProductForm({ ...productForm, stock: Number(event.target.value) || 0 })}
                       required
                     />
                   </label>
@@ -447,6 +507,27 @@ export default function ProductAdmin() {
                       value={productForm.barcode}
                       onChange={(event) => setProductForm({ ...productForm, barcode: event.target.value })}
                     />
+                  </label>
+                  <label className="field-label">
+                    부가세율 (%) (선택)
+                    <input
+                      className="input-base mt-2"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={productForm.tax_rate !== undefined ? productForm.tax_rate * 100 : ''}
+                      placeholder="카테고리 기본값 사용"
+                      onChange={(event) => setProductForm({ 
+                        ...productForm, 
+                        tax_rate: event.target.value === '' ? undefined : Number(event.target.value) / 100 
+                      })}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {productForm.tax_rate !== undefined 
+                        ? `개별 설정: ${(productForm.tax_rate * 100).toFixed(1)}%` 
+                        : '카테고리 기본 부가세율 사용'}
+                    </p>
                   </label>
                   <label className="field-label">
                     이미지 (선택)
@@ -499,6 +580,26 @@ export default function ProductAdmin() {
                 required
               />
             </label>
+            <label className="field-label">
+              부가세율 (%)
+              <input
+                className="input-base mt-2"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={categoryForm.tax_rate !== undefined ? categoryForm.tax_rate * 100 : ''}
+                placeholder=""
+                onChange={(event) => setCategoryForm({
+                  ...categoryForm,
+                  tax_rate: event.target.value === '' ? 0 : Number(event.target.value) / 100
+                })}
+                required
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                현재: {(categoryForm.tax_rate !== undefined ? categoryForm.tax_rate * 100 : 10).toFixed(1)}% ({(categoryForm.tax_rate !== undefined ? categoryForm.tax_rate : 0.1).toFixed(3)})
+              </p>
+            </label>
 
             <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button className="button-primary" type="submit" disabled={loading}>
@@ -527,8 +628,9 @@ export default function ProductAdmin() {
                 className="input-base mt-2"
                 type="number"
                 min="1"
-                value={tableForm.id}
-                onChange={(event) => setTableForm({ ...tableForm, id: Number(event.target.value) })}
+                value={tableForm.id || ''}
+                placeholder="1"
+                onChange={(event) => setTableForm({ ...tableForm, id: Number(event.target.value) || 0 })}
                 required
               />
             </label>
@@ -585,12 +687,13 @@ export default function ProductAdmin() {
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead>
                   <tr className="flex items-center p-1 border-b border-slate-200">
-                    <th className="w-[140px] px-2 py-1">사진</th>
+                    <th className="w-[100px] px-2 py-1">사진</th>
                     <th className="w-2/6 px-2 py-1">상품정보</th>
                     <th className="w-1/6 px-2 py-1">카테고리</th>
-                    <th className="w-1/6 px-2 py-1">금액</th>
-                    <th className="w-1/6 px-2 py-1">재고</th>
-                    <th className="w-48 px-2 py-1">작업</th>
+                    <th className="w-1/8 px-2 py-1">금액</th>
+                    <th className="w-1/8 px-2 py-1">부가세율</th>
+                    <th className="w-1/8 px-2 py-1">재고</th>
+                    <th className="w-32 px-2 py-1">작업</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -624,12 +727,19 @@ export default function ProductAdmin() {
                           <div className="text-xs text-slate-600">{product.category}</div>
                         </div>
                       </td>
-                      <td className="w-1/6 px-2 py-1">
+                      <td className="w-1/8 px-2 py-1">
                         <div className="flex flex-col justify-center h-full">
                           <div className="text-xs text-slate-600">{product.price.toLocaleString()} VND</div>
                         </div>
                       </td>
-                      <td className="w-1/6 px-2 py-1">
+                      <td className="w-1/8 px-2 py-1">
+                        <div className="flex flex-col justify-center h-full">
+                          <div className="text-xs text-slate-600">
+                            {getDisplayTaxRate(product)}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="w-1/8 px-2 py-1">
                         <div className="flex flex-col justify-center h-full">
                           <div className="text-xs text-slate-600">재고: {product.stock}</div>
                         </div>
@@ -689,6 +799,7 @@ export default function ProductAdmin() {
                 <thead>
                   <tr>
                     <th className="table-header px-4 py-3">카테고리 이름</th>
+                    <th className="table-header px-4 py-3">부가세율</th>
                     <th className="table-header px-4 py-3">작업</th>
                   </tr>
                 </thead>
@@ -696,6 +807,9 @@ export default function ProductAdmin() {
                   {categories.map((category) => (
                     <tr key={category.id}>
                       <td className="px-4 py-4 text-slate-900">{category.name}</td>
+                      <td className="px-4 py-4 text-slate-600">
+                        {(category.tax_rate ? category.tax_rate * 100 : 10).toFixed(1)}%
+                      </td>
                       <td className="px-4 py-4 space-x-2">
                         <button className="button-secondary" onClick={() => handleCategoryEdit(category)}>
                           수정
