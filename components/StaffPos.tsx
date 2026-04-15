@@ -307,7 +307,8 @@ export default function StaffPos() {
 const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number }> = useMemo(() => {
   const info: Record<string, { orders: OrderData[]; totalAmount: number }> = {};
   allOrders
-    .filter(order => order.status === 'pending')
+    // 모든 상태의 주문 표시 (pending + completed)
+    .filter(order => ['pending', 'completed'].includes(order.status))
     .forEach(order => {
       const key = String(order.table_id).replace(/\D/g, '');
       if (!info[key]) info[key] = { orders: [], totalAmount: 0 };
@@ -585,24 +586,28 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
             }).map(table => {
               const ts = table.name.replace(/\D/g, ''); // 숫자만 추출
               console.log('테이블:', table.id, table.name, '→ ts:', ts);
-              // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
-              const tableOrders = allOrders.filter(order => String(order.table_id) === String(ts));
-              console.log('테이블', ts, '주문:', tableOrders);
-              const hasOrder = tableOrders.length > 0;
-              const totalOrders = tableOrders.length;
-              const pending = tableOrders.filter(o => o.status === 'pending').length;
-              const total = tableOrders.reduce((sum, order) => {
-                const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
-                return sum + orderTotal;
-              }, 0);
-              return (
-                <button key={table.id} onClick={() => selectTable(ts)}
-                  className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasOrder ? 'border-red-200' : 'border-gray-100')}>
-                  <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasOrder ? 'bg-red-400' : 'bg-green-400')}></div>
-                  <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.name}</div>
-                  <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasOrder ? 'text-red-500' : 'text-green-500')}>{hasOrder ? '사용 중' : '사용 가능'}</div>
-                  {total > 0 && (<div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">{total.toLocaleString()} VND</div>)}
-                  {totalOrders > 0 && (<div className="mt-2 lg:mt-3 flex gap-2"><span className="text-[10px] lg:text-xs text-gray-400">{totalOrders}건</span>{pending > 0 && <span className="text-[10px] lg:text-xs text-amber-500">{pending}건 대기</span>}</div>)}
+             // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
+             const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === String(ts));
+             console.log('테이블', ts, '주문:', tableOrders);
+             const hasOrder = tableOrders.length > 0;
+             const totalOrders = tableOrders.length;
+             const pending = tableOrders.filter(o => o.status === 'pending').length;
+             const total = tableOrders.reduce((sum, order) => {
+               const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
+               return sum + orderTotal;
+             }, 0);
+             const hasPendingOrders = tableOrders.filter(o => o.status === 'pending').length > 0;
+             const hasCompletedOrders = tableOrders.filter(o => o.status === 'completed').length > 0;
+             return (
+               <button key={table.id} onClick={() => selectTable(ts)}
+                 className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasPendingOrders ? 'border-red-200' : hasCompletedOrders ? 'border-yellow-200' : 'border-gray-100')}>
+                 <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasPendingOrders ? 'bg-red-400' : hasCompletedOrders ? 'bg-yellow-400' : 'bg-green-400')}></div>
+                 <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.name}</div>
+                 <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasPendingOrders ? 'text-red-500' : hasCompletedOrders ? 'text-yellow-500' : 'text-green-500')}>
+                   {hasPendingOrders ? '사용 중' : hasCompletedOrders ? '완료 대기' : '사용 가능'}
+                 </div>
+                 {total > 0 && (<div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">{total.toLocaleString()} VND</div>)}
+                 {totalOrders > 0 && (<div className="mt-2 lg:mt-3 flex gap-2"><span className="text-[10px] lg:text-xs text-gray-400">{totalOrders}건</span>{pending > 0 && <span className="text-[10px] lg:text-xs text-amber-500">{pending}건 대기</span>}</div>)}
                 </button>
               );
             })}
