@@ -567,8 +567,8 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         </header>
         <main className="flex-1 p-4 lg:p-6 max-w-5xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
-            {tables.sort((a, b) => Number(a.id) - Number(b.id)).map(table => {
-              const ts = String(table.id);
+            {tables.sort((a, b) => Number(a.name) - Number(b.name)).map(table => {
+              const ts = table.name;
               // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
               const tableOrders = allOrders.filter(order => String(order.table_id) === String(ts));
               const hasOrder = tableOrders.length > 0;
@@ -582,7 +582,7 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                 <button key={table.id} onClick={() => selectTable(ts)}
                   className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasOrder ? 'border-red-200' : 'border-gray-100')}>
                   <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasOrder ? 'bg-red-400' : 'bg-green-400')}></div>
-                  <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.id}</div>
+                  <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.name}</div>
                   <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasOrder ? 'text-red-500' : 'text-green-500')}>{hasOrder ? '사용 중' : '사용 가능'}</div>
                   {total > 0 && (<div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">{total.toLocaleString()} VND</div>)}
                   {totalOrders > 0 && (<div className="mt-2 lg:mt-3 flex gap-2"><span className="text-[10px] lg:text-xs text-gray-400">{totalOrders}건</span>{pending > 0 && <span className="text-[10px] lg:text-xs text-amber-500">{pending}건 대기</span>}</div>)}
