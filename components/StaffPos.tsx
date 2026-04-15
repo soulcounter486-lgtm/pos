@@ -30,7 +30,6 @@ export default function StaffPos() {
   const [currentView, setCurrentView] = useState<'orders' | 'menu' | 'merged-orders'>('orders');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
-  const [isOrderComplete, setIsOrderComplete] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   // 합석 기능
   const [isMergeMode, setIsMergeMode] = useState(false);
@@ -89,9 +88,7 @@ export default function StaffPos() {
     }
   }, [allOrders, selectedTable, dataLoaded, currentView, tables]);
 
-  useEffect(() => {
-    if (isOrderComplete) { setIsOrderComplete(false); setSelectedTable(null); setMessage(null); }
-  }, [isOrderComplete]);
+  // isOrderComplete 이펙트 제거 — 주문 후 내비게이션은 submitOrder 내부에서 처리
 
   useEffect(() => {
     if (message) {
@@ -276,12 +273,8 @@ export default function StaffPos() {
 
       const { data: od, error: oe } = await s.from('orders').insert({
         table_id: selectedTableId,
-        total_amount: total,
+        total: total,
         status: 'pending',
-        payment_method: 'card',
-        subtotal: sub,
-        tax_amount: tax,
-        include_tax: true
       }).select().single();
       if (oe) throw oe;
 
@@ -302,9 +295,9 @@ export default function StaffPos() {
 
       setCart([]);
       setCartMemos({});
-      setMessage('주문이 완료되었습니다!');
       await fetchOrders();
-      setIsOrderComplete(true);
+      setMessage('주문이 완료되었습니다!');
+      navigateTo('orders');
     } catch (e: unknown) {
       console.error('주문 처리 중 오류 발생:', e);
       let errMsg = '';
@@ -458,20 +451,6 @@ export default function StaffPos() {
     } finally { setLoading(false); }
   }
 
-  // ==================== 완료 화면 ====================
-  if (isOrderComplete) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl text-green-500">✓</span>
-          </div>
-          <h2 className="text-2xl font-bold text-[#1F2937] mb-2">주문 완료</h2>
-          <p className="text-[#6B7280]">테이블 선택 화면으로 돌아갑니다...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!dataLoaded || loadingTables) {
     return (
@@ -833,54 +812,8 @@ export default function StaffPos() {
       });
     };
 
-    const menuCartHeader = cart.length > 0 ? (
-      <div className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] shadow-sm px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold text-[#111827]">선택 메뉴</h2>
-          <span className="text-sm text-gray-500">{cart.reduce((s, i) => s + i.quantity, 0)}개</span>
-        </div>
-        {cart.length > 0 ? (
-          <div className="space-y-2 max-h-56 overflow-y-auto">
-            {cart.map(item => (
-              <div key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-100 px-3 py-2">
-                <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden flex-shrink-0">
-                  {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#111827] truncate">{item.name}</p>
-                  <p className="text-xs text-gray-500">{item.price.toLocaleString()} VND</p>
-                </div>
-                {editingQuantityId === item.id ? (
-                  <input
-                    type="number"
-                    value={quantityInput}
-                    onChange={e => setQuantityInput(e.target.value)}
-                    onBlur={() => saveQuantity(item.id)}
-                    onFocus={e => e.target.select()}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
-                    className="w-16 h-8 text-center text-sm border-2 border-blue-400 rounded-lg focus:outline-none"
-                    autoFocus
-                    min="1"
-                  />
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600">−</button>
-                    <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-10 h-8 rounded-lg bg-blue-50 text-blue-700 font-bold">{item.quantity}</button>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600">+</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400">선택된 메뉴가 없습니다.</p>
-        )}
-      </div>
-    ) : null;
-
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
-        {menuCartHeader}
         <header className="bg-white border-b border-[#E5E7EB] px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1107,6 +1040,53 @@ export default function StaffPos() {
           </div>
         </header>
 
+        {/* ===== 모바일 전용: 선택 메뉴 목록 (헤더 바로 아래 고정) ===== */}
+        {cart.length > 0 && (
+          <div className="lg:hidden bg-white border-b border-blue-100 px-3 py-2 shadow-sm">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-blue-700">선택 메뉴 {cart.reduce((s, i) => s + i.quantity, 0)}개</span>
+              <span className="text-xs font-bold text-blue-700">{cartTotal.toLocaleString()} VND</span>
+            </div>
+            <div className="space-y-1.5 max-h-44 overflow-y-auto">
+              {cart.map(item => (
+                <div key={item.id} className="border border-blue-100 rounded-xl bg-blue-50 px-2.5 py-1.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-blue-100">
+                      {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-[#374151] truncate">{item.name}</p>
+                      <p className="text-[10px] text-gray-400">{(item.price * item.quantity).toLocaleString()} VND</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {editingQuantityId === item.id ? (
+                        <input type="number" value={quantityInput}
+                          onChange={e => setQuantityInput(e.target.value)}
+                          onFocus={e => e.target.select()}
+                          onBlur={() => saveQuantity(item.id)}
+                          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') cancelEditing(); }}
+                          className="w-14 h-6 text-center text-xs border-2 border-blue-400 rounded-lg focus:outline-none font-bold bg-white"
+                          autoFocus min="1" />
+                      ) : (
+                        <>
+                          <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">−</button>
+                          <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-white hover:bg-blue-100 border border-blue-200 rounded-md flex items-center justify-center font-bold text-blue-700 text-xs transition-colors">{item.quantity}</button>
+                          <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">+</button>
+                          <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded-md flex items-center justify-center text-red-400 text-[10px] ml-0.5 transition-colors">✕</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <input type="text" placeholder="📝 주방 메모"
+                    value={cartMemos[item.id] || ''}
+                    onChange={e => setCartMemos(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    className="w-full text-[10px] px-2 py-1 bg-white border border-blue-100 rounded-lg text-blue-700 placeholder-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-3 lg:p-4">
           {loading ? (
             <div className="flex items-center justify-center h-full text-gray-400">로딩 중...</div>
@@ -1133,61 +1113,15 @@ export default function StaffPos() {
         </div>
       </div>
 
-      {/* ===== 오른쪽: 장바구니 - 모바일 하단 ===== */}
-      <div className="bg-white border-t border-gray-100 px-3 lg:hidden py-2.5 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.06)] z-30">
-        {cart.length > 0 ? (
-          <div className="space-y-2 mb-2 max-h-52 overflow-y-auto">
-            {cart.map(item => (
-              <div key={item.id} className="border border-gray-100 rounded-xl p-2 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {item.image_url
-                      ? <img src={item.image_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-[8px] text-gray-300">-</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[#374151] truncate">{item.name}</p>
-                    <p className="text-[10px] text-gray-400">{item.price.toLocaleString()} VND</p>
-                  </div>
-                  <div className="flex items-center gap-0.5 flex-shrink-0">
-                    {editingQuantityId === item.id ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={quantityInput}
-                          onChange={e => setQuantityInput(e.target.value)}
-                          onFocus={e => e.target.select()}
-                          onBlur={() => saveQuantity(item.id)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
-                          className="w-14 h-7 text-center text-xs border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 font-bold"
-                          autoFocus
-                          min="1"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">−</button>
-                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-9 h-7 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm transition-colors">{item.quantity}</button>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">+</button>
-                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-xs ml-0.5 transition-colors">✕</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <input type="text" placeholder="📝 주방 메모 (선택)"
-                  value={cartMemos[item.id] || ''}
-                  onChange={e => setCartMemos(prev => ({ ...prev, [item.id]: e.target.value }))}
-                  className="w-full text-[10px] px-2 py-1 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 placeholder-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-xs text-gray-400 py-1.5">상품을 선택하세요</p>
+      {/* ===== 모바일 하단: 합계 + 주문하기 버튼만 ===== */}
+      <div className="bg-white border-t border-gray-100 px-3 lg:hidden py-3 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.06)] z-30">
+        {cart.length === 0 && (
+          <p className="text-center text-xs text-gray-400 py-1">상품을 선택하세요</p>
         )}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+        <div className="flex items-center justify-between">
           <div>
             <p className="text-base font-bold text-[#111827]">{cartTotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
-            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
+            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개 선택</p>
           </div>
           <button onClick={submitOrder} disabled={loading || cart.length === 0}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
