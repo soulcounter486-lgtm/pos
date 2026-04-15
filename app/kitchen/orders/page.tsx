@@ -260,6 +260,8 @@ export default function KitchenOrders() {
       console.log('주문 상태 업데이트 완료');
       console.log('=== markOrderComplete 완료 ===');
       
+      // 주문 완료 후 completed 탭으로 전환
+      setActiveTab('completed');
       fetchOrders();
     } catch (error) {
       console.error('Error completing order:', error);
