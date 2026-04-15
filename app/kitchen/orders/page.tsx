@@ -19,6 +19,7 @@ type OrderItem = {
 type Order = {
   id: string;
   table_id: string;
+  table_name?: string;
   total: number;
   status: string;
   created_at: string;
@@ -132,6 +133,7 @@ export default function KitchenOrders() {
         .from('orders')
         .select(`
           *,
+          tables ( name ),
           order_items (
             id,
             order_id,
@@ -158,6 +160,7 @@ export default function KitchenOrders() {
       const processedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.id,
         table_id: order.table_id,
+        table_name: order.tables?.name || null,
         total: order.total,
         status: order.status,
         created_at: order.created_at,
@@ -316,7 +319,7 @@ export default function KitchenOrders() {
               <div key={order.id} className="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
                 <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-blue-600' : 'bg-green-600'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-white font-bold text-lg">🏠 테이블 {order.table_id}</h3>
+                    <h3 className="text-white font-bold text-lg">🏠 {order.table_name || `테이블 ${order.table_id.slice(0, 6)}…`}</h3>
                     <div className="text-right">
                       <span className={`text-sm px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-yellow-500 text-white animate-pulse' : 'bg-green-700 text-white'}`}>
                         {order.status === 'pending' ? '대기 중...' : '완료'}

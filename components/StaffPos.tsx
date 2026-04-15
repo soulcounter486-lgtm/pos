@@ -356,17 +356,16 @@ export default function StaffPos() {
         });
       } catch (e: unknown) { console.error('Sales insert error:', e instanceof Error ? e.message : e); }
 
-      // orderIds를 직접 사용해 대기 중 주문을 완료 처리 (UUID 기반으로 안전)
+      // 결제 완료: order_items → orders 순서로 삭제하여 테이블을 사용 가능 상태로 초기화
       if (orderIds.length > 0) {
-        const { error: ordersUpdateErr } = await supabase
-          .from('orders').update({ status: 'completed', payment_method: method }).in('id', orderIds);
-        if (ordersUpdateErr) throw ordersUpdateErr;
-        await supabase.from('order_items').update({ status: 'completed' }).in('order_id', orderIds);
+        await supabase.from('order_items').delete().in('order_id', orderIds);
+        const { error: ordersDeleteErr } = await supabase.from('orders').delete().in('id', orderIds);
+        if (ordersDeleteErr) throw ordersDeleteErr;
       }
       setCurrentView('orders');
       setPendingOrders([]);
       setSelectedTable(null);
-      setMessage('결제 완료!');
+      setMessage('결제 완료! 테이블이 초기화되었습니다.');
       await fetchOrders();
     } catch (e: unknown) {
       console.error('결제 에러:', e);
@@ -409,23 +408,18 @@ export default function StaffPos() {
       .map(ts => tables.find(t => t.name.replace(/\D/g, '') === ts)?.id)
       .filter((id): id is string => !!id);
 
-    // 결제 금액: pending 주문만 포함 (기존 단일 테이블 결제와 동일한 기준)
-    const pendingOrdersToSettle = allOrders.filter(o =>
-      mergedUuids.includes(o.table_id) && o.status === 'pending'
+    // 결제 금액: pending + completed(조리완료) 전부 포함
+    const allActiveOrders = allOrders.filter(o =>
+      mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed')
     );
-    if (pendingOrdersToSettle.length === 0) {
-      setMessage('결제할 대기 주문이 없습니다.');
+    if (allActiveOrders.length === 0) {
+      setMessage('결제할 주문이 없습니다.');
       return;
     }
-    const pendingTotal = pendingOrdersToSettle.reduce(
+    const activeTotal = allActiveOrders.reduce(
       (s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0
     );
-    const pendingOrderIds = pendingOrdersToSettle.map(o => o.id);
-
-    // 테이블 초기화 대상: pending + completed(조리완료) 전부 삭제 → 사용 가능 상태로
-    const allActiveOrderIds = allOrders
-      .filter(o => mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed'))
-      .map(o => o.id);
+    const allActiveOrderIds = allActiveOrders.map(o => o.id);
 
     setLoading(true);
     try {
@@ -435,9 +429,9 @@ export default function StaffPos() {
       try {
         await supabase.from('sales').insert({
           table_id: mergedUuids[0],
-          total_amount: pendingTotal,
+          total_amount: activeTotal,
           payment_method: method,
-          order_count: pendingOrderIds.length
+          order_count: allActiveOrderIds.length
         });
       } catch (e: unknown) { console.error('Sales insert error (merged):', e instanceof Error ? e.message : e); }
 
@@ -911,8 +905,8 @@ export default function StaffPos() {
             className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
             가영수증
           </button>
-          <button onClick={() => { setPendingOrders(tablePendingOrders); setShowPaymentModal(true); }}
-            disabled={tablePendingOrders.length === 0}
+          <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }}
+            disabled={tableOrders.length === 0}
             className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors">
             결제
           </button>
