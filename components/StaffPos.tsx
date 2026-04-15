@@ -96,148 +96,7 @@ export default function StaffPos() {
     }
   }
 
-  function startEditingOrderItem(itemId: string, currentQuantity: number) {
-    setEditingOrderItem({ itemId, newQuantity: currentQuantity });
-  }
 
-  async function saveOrderItemQuantity(itemId: string, orderItemId: string, currentQuantity: number, newQuantity: number) {
-    console.log('=== saveOrderItemQuantity 시작 ===');
-    console.log('파라미터:', { itemId, orderItemId, currentQuantity, newQuantity });
-    
-    if (newQuantity <= 0) {
-      setMessage('수량은 1 이상이어야 합니다.');
-      return;
-    }
-
-    const orderItem = allOrderItems.find(i => i.id === orderItemId);
-    if (!orderItem) {
-      console.error('주문 항목을 찾을 수 없음:', orderItemId);
-      setMessage('주문 항목을 찾을 수 없습니다.');
-      return;
-    }
-    console.log('주문 항목 찾음:', orderItem);
-
-    const product = products.find(p => p.id === orderItem.product_id);
-    if (!product) {
-      console.error('상품을 찾을 수 없음:', orderItem.product_id);
-      setMessage('상품을 찾을 수 없습니다.');
-      return;
-    }
-    console.log('상품 찾음:', product);
-
-    // 수량 변경량 계산
-    const quantityChange = newQuantity - currentQuantity;
-    
-    // 재고 확인 (수량 증가 시에만)
-    if (quantityChange > 0 && product.stock < quantityChange) {
-      setMessage('재고가 부족합니다.');
-      return;
-    }
-
-    const s = getSupabase();
-    console.log('Supabase 클라이언트 생성됨');
-    
-    try {
-      if (newQuantity === 0) {
-        // 수량이 0이면 항목 삭제
-        console.log('항목 삭제 시작');
-        const { error } = await s.from('order_items').delete().eq('id', orderItemId);
-        if (error) {
-          console.error('주문 항목 삭제 실패:', error);
-          setMessage('주문 항목 삭제 실패: ' + error.message);
-          return;
-        }
-        console.log('항목 삭제 성공');
-        setMessage('주문 항목이 삭제되었습니다.');
-      } else {
-        // 기존 항목의 수량과 가격 업데이트 (단가와 총액 모두 업데이트)
-        const unitPrice = product.price; // 단가
-        const newPrice = unitPrice * newQuantity; // 총액 = 단가 × 수량
-        console.log('수량 업데이트 시작:', {
-          orderItemId,
-          currentQuantity,
-          newQuantity,
-          unitPrice,
-          newPrice,
-          order_id: orderItem.order_id
-        });
-        
-        // 1. order_items 업데이트 (unit_price와 price 모두 업데이트)
-        console.log('order_items 업데이트 시도...');
-        const { error: updateError, data: updateData } = await s.from('order_items').update({ 
-          quantity: newQuantity,
-          unit_price: unitPrice,  // 단가 업데이트
-          price: newPrice         // 총액 업데이트
-        }).eq('id', orderItemId);
-        
-        if (updateError) {
-          console.error('order_items 업데이트 실패:', updateError);
-          setMessage('수량 업데이트 실패: ' + updateError.message);
-          return;
-        }
-        
-        console.log('order_items 업데이트 성공:', updateData);
-        
-        // 2. 해당 주문의 모든 항목 가격 합계 계산
-        console.log('주문 총액 계산 시작, order_id:', orderItem.order_id);
-        const { data: items, error: itemsError } = await s.from('order_items').select('price').eq('order_id', orderItem.order_id);
-        
-        if (itemsError) {
-          console.error('항목 조회 실패:', itemsError);
-          // 계속 진행
-        } else {
-          console.log('항목 조회 결과:', items);
-        }
-        
-        const totalAmount = items?.reduce((sum, item) => sum + item.price, 0) || 0;
-        console.log('계산된 총액:', totalAmount);
-        
-        // 3. 주문 총액 업데이트 (created_at도 업데이트하여 최신순 정렬)
-        console.log('orders 업데이트 시도...');
-        const { error: orderUpdateError, data: orderUpdateData } = await s.from('orders').update({ 
-          created_at: new Date().toISOString(), // 최신순 정렬을 위해 시간 업데이트
-          total: totalAmount,
-          total_amount: totalAmount 
-        }).eq('id', orderItem.order_id);
-        
-        if (orderUpdateError) {
-          console.error('orders 업데이트 실패:', orderUpdateError);
-          setMessage('주문 업데이트 실패: ' + orderUpdateError.message);
-          // 계속 진행
-        } else {
-          console.log('orders 업데이트 성공:', orderUpdateData);
-        }
-        
-        setMessage('수량과 금액이 업데이트되었습니다.');
-      }
-      
-      // 4. 데이터 새로고침
-      console.log('데이터 새로고침 시작');
-      await fetchOrders();
-      await fetchProducts();
-      console.log('데이터 새로고침 완료');
-      
-    } catch (error) {
-      console.error('수량 업데이트 중 예외 발생:', error);
-      setMessage('수량 업데이트 중 오류가 발생했습니다.');
-    } finally {
-      console.log('=== saveOrderItemQuantity 종료 ===');
-      setEditingOrderItem(null);
-    }
-  }
-
-  function cancelEditingOrderItem() {
-    setEditingOrderItem(null);
-  }
-
-  async function updateOrderItemQuantity(orderId: string, orderItemId: string, currentQuantity: number, delta: number) {
-    const newQuantity = currentQuantity + delta;
-    if (newQuantity <= 0) {
-      setMessage('수량은 1 이상이어야 합니다.');
-      return;
-    }
-    await saveOrderItemQuantity(orderItemId, orderItemId, currentQuantity, newQuantity);
-  }
 
   function navigateTo(view: 'orders' | 'menu') {
     setCurrentView(view);
@@ -247,12 +106,15 @@ export default function StaffPos() {
   function selectTable(tableId: string) {
     // 숫자만 추출해서 비교
     const tableIdNum = tableId.replace(/\D/g, '');
-    // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
-    const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === tableIdNum);
+    // 완료된 주문만 필터링
+    const completedOrders = allOrders.filter(order => 
+      String(order.table_id).replace(/\D/g, '') === tableIdNum && 
+      order.status === 'completed'
+    );
     
-    // 주문내역 존재 여부에 따라 화면 전환
-    const hasOrder = tableOrders.length > 0;
-    const view = hasOrder ? 'orders' : 'menu';
+    // 완료된 주문 존재 여부에 따라 화면 전환
+    const hasCompletedOrders = completedOrders.length > 0;
+    const view = hasCompletedOrders ? 'orders' : 'menu';
     
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
     setSelectedTable(String(tableId)); setCurrentView(view);
@@ -567,15 +429,24 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
                return sum + orderTotal;
              }, 0);
-             const hasPendingOrders = tableOrders.filter(o => o.status === 'pending').length > 0;
-             const hasCompletedOrders = tableOrders.filter(o => o.status === 'completed').length > 0;
+             // 완료된 주문만 계산
+             const completedOrders = tableOrders.filter(o => o.status === 'completed');
+             const hasCompletedOrders = completedOrders.length > 0;
+             const pendingOrders = tableOrders.filter(o => o.status === 'pending');
+             const hasPendingOrders = pendingOrders.length > 0;
+             
+             const totalAmount = completedOrders.reduce((sum, order) => {
+               const orderTotal = order.total_amount !== undefined ? order.total_amount : order.total;
+               return sum + orderTotal;
+             }, 0);
+             
              return (
                <button key={table.id} onClick={() => selectTable(ts)}
-                 className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasPendingOrders ? 'border-red-200' : hasCompletedOrders ? 'border-yellow-200' : 'border-gray-100')}>
-                 <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasPendingOrders ? 'bg-red-400' : hasCompletedOrders ? 'bg-yellow-400' : 'bg-green-400')}></div>
+                 className={'relative bg-white rounded-2xl p-4 lg:p-5 border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-left ' + (hasCompletedOrders ? 'border-green-200' : hasPendingOrders ? 'border-red-200' : 'border-gray-100')}>
+                 <div className={'absolute top-3 right-3 w-3 h-3 rounded-full ' + (hasCompletedOrders ? 'bg-green-400' : hasPendingOrders ? 'bg-red-400' : 'bg-gray-300')}></div>
                  <div className="text-base lg:text-lg font-medium mb-2 text-[#111827]">Table {table.name}</div>
-                 <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasPendingOrders ? 'text-red-500' : hasCompletedOrders ? 'text-yellow-500' : 'text-green-500')}>
-                   {hasPendingOrders ? '사용 중' : hasCompletedOrders ? '완료 대기' : '사용 가능'}
+                 <div className={'text-xs lg:text-sm font-medium mb-2 lg:mb-3 ' + (hasCompletedOrders ? 'text-green-500' : hasPendingOrders ? 'text-red-500' : 'text-gray-500')}>
+                   {hasCompletedOrders ? '결제 완료' : hasPendingOrders ? '주문 대기' : '사용 가능'}
                  </div>
                  {total > 0 && (<div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">{total.toLocaleString()} VND</div>)}
                  {totalOrders > 0 && (<div className="mt-2 lg:mt-3 flex gap-2"><span className="text-[10px] lg:text-xs text-gray-400">{totalOrders}건</span>{pending > 0 && <span className="text-[10px] lg:text-xs text-amber-500">{pending}건 대기</span>}</div>)}
@@ -589,11 +460,15 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
     );
   }
 
-  // ==================== 주문내역 ====================
+  // ==================== 주문내역 (완료된 주문만 표시) ====================
   if (currentView === 'orders') {
     // 숫자만 추출해서 비교
     const tableIdNum = selectedTable?.replace(/\D/g, '');
-    const tableOrders = allOrders.filter(o => String(o.table_id).replace(/\D/g, '') === tableIdNum);
+    // 완료된 주문만 표시
+    const tableOrders = allOrders.filter(o => 
+      String(o.table_id).replace(/\D/g, '') === tableIdNum && 
+      o.status === 'completed'
+    );
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
@@ -613,33 +488,34 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
         </header>
 
         <main className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-2 lg:space-y-3 max-w-3xl mx-auto w-full">
-          {tableOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-300">
-              <span className="text-5xl mb-3">&#128203;</span>
-              <p className="text-sm">주문 내역이 없습니다</p>
-            </div>
-          ) : (
-            tableOrders.map(order => {
-              const items = allOrderItems.filter(i => i.order_id === order.id);
-              return (
-                <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="px-4 lg:px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={'text-xs px-2 lg:px-2.5 py-0.5 lg:py-1 rounded-full font-medium ' + (order.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600')}>
-                        {order.status === 'pending' ? '대기' : '완료'}
-                      </span>
-                    </div>
-                      <div className="text-right">
-                      <div className="text-sm font-bold text-[#111827]">
-                        {(order.total_amount !== undefined ? order.total_amount : order.total).toLocaleString()} VND
-                      </div>
-                      <div className="text-[10px] text-gray-400">{new Date(order.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                    </div>
-                  </div>
-                  <div className="px-4 lg:px-5 pb-3 space-y-1 lg:space-y-1.5">
-                    {items.map(item => {
-                      const product = products.find(p => p.id === item.product_id);
-                      const isEditing = editingOrderItem?.itemId === item.id;
+           {tableOrders.length === 0 ? (
+             <div className="flex flex-col items-center justify-center py-16 text-gray-300">
+               <span className="text-5xl mb-3">&#128203;</span>
+               <p className="text-sm">완료된 주문 내역이 없습니다</p>
+             </div>
+           ) : (
+             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+               <div className="px-4 lg:px-5 py-4 bg-gray-50 border-b border-gray-100">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <span className="text-sm font-bold text-[#111827]">완료된 주문</span>
+                     <span className="text-xs text-gray-400 ml-2">{tableOrders.length}건</span>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-lg font-bold text-blue-600">
+                       {tableOrders.reduce((sum, o) => {
+                         const orderTotal = o.total_amount !== undefined ? o.total_amount : o.total;
+                         return sum + orderTotal;
+                       }, 0).toLocaleString()} VND
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               <div className="divide-y divide-gray-100">
+                 {tableOrders.flatMap(order => {
+                   const items = allOrderItems.filter(i => i.order_id === order.id);
+                   return items.map(item => {
+                     const product = products.find(p => p.id === item.product_id);
                        return (
                          <div key={item.id} className="flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5">
                            <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -650,56 +526,41 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
                              <p className="text-[9px] lg:text-[10px] text-gray-400">
                                {product?.price.toLocaleString() || 0} VND × {item.quantity}개 = {(item.price * item.quantity).toLocaleString()} VND
                              </p>
+                             <p className="text-[8px] text-gray-300">
+                               {new Date(order.created_at).toLocaleString('ko-KR', { 
+                                 month: 'numeric', 
+                                 day: 'numeric', 
+                                 hour: '2-digit', 
+                                 minute: '2-digit' 
+                               })}
+                             </p>
                            </div>
-                           <div className="flex items-center gap-0.5 flex-shrink-0">
-                             <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, -1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">-</button>
-                             {isEditing ? (
-                               <div className="flex items-center gap-1">
-                                 <input
-                                   type="number"
-                                   value={editingOrderItem.newQuantity}
-                                   onChange={(e) => setEditingOrderItem({...editingOrderItem, newQuantity: parseInt(e.target.value) || 1})}
-                                   onKeyDown={(e) => {
-                                     if (e.key === 'Enter') saveOrderItemQuantity(item.id, item.id, item.quantity, editingOrderItem.newQuantity);
-                                     if (e.key === 'Escape') cancelEditingOrderItem();
-                                   }}
-                                   className="w-12 h-6 text-center text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                   autoFocus
-                                   min="1"
-                                 />
-                                 <button onClick={() => saveOrderItemQuantity(item.id, item.id, item.quantity, editingOrderItem.newQuantity)} className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded flex items-center justify-center text-xs">✓</button>
-                                 <button onClick={cancelEditingOrderItem} className="w-6 h-6 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded flex items-center justify-center text-xs">✕</button>
-                               </div>
-                             ) : (
-                               <button onClick={() => startEditingOrderItem(item.id, item.quantity)} className="w-8 h-6 bg-gray-50 hover:bg-gray-100 rounded flex items-center justify-center font-bold text-[#111827] text-xs">
-                                 {item.quantity}
-                               </button>
-                             )}
-                             <button onClick={() => updateOrderItemQuantity(order.id, item.id, item.quantity, 1)} className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">+</button>
+                           <div className="flex items-center gap-2 flex-shrink-0">
+                             <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded">
+                               {item.quantity}개
+                             </span>
                            </div>
                          </div>
                        );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
+                     });
+                   })
+                 }
+               </div>
+             </div>
+           )}
         </main>
 
          <div className="bg-white border-t border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 flex gap-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]">
            <div className="flex-1 flex items-center justify-between px-3">
              <span className="text-sm text-gray-600">총 금액:</span>
-             <span className="text-lg font-bold text-[#111827]">
+             <span className="text-lg font-bold text-blue-600">
                {tableOrders.reduce((sum, o) => {
                  const orderTotal = o.total_amount !== undefined ? o.total_amount : o.total;
                  return sum + orderTotal;
                }, 0).toLocaleString()} VND
              </span>
            </div>
-           <button onClick={() => issueReceipt(tableOrders)} className="flex-1 bg-gray-50 hover:bg-gray-100 text-[#374151] py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">영수증</button>
-           <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }} disabled={tableOrders.length === 0}
-             className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">결제</button>
+           <button onClick={() => issueReceipt(tableOrders)} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2.5 lg:py-3.5 rounded-xl text-[11px] lg:text-sm font-semibold transition-colors">영수증 출력</button>
          </div>
 
         <button onClick={() => navigateTo('menu')}
