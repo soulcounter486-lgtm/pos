@@ -277,9 +277,9 @@ export default function StaffPos() {
     const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === tableIdNum);
     console.log('필터링된 주문:', tableOrders);
     
-    const hasOrder = tableOrders.length > 0;
-    const view = hasOrder ? 'orders' : 'menu';
-    console.log('hasOrder:', hasOrder, 'view:', view);
+    // 항상 메뉴 화면으로 이동 (주문 추가 편의성)
+    const view = 'menu';
+    console.log('view:', view);
     
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
     setSelectedTable(String(tableId)); setCurrentView(view);
@@ -746,18 +746,18 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
       {/* ===== 왼쪽: 상품 영역 ===== */}
       <div className="flex-1 flex flex-col min-h-screen lg:min-h-0">
         <header className="bg-white border-b border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 shadow-sm">
-          <div className="flex items-center justify-between mb-2 lg:mb-3">
-            <div className="flex items-center gap-2 lg:gap-3">
-              <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
-            </div>
-            {/* 모바일 전용 주문내역 버튼 */}
-            <button onClick={() => navigateTo('orders')} className="text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors lg:hidden">
-              주문내역
-            </button>
-          </div>
+           <div className="flex items-center justify-between mb-2 lg:mb-3">
+             <div className="flex items-center gap-2 lg:gap-3">
+               <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+               </button>
+               <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+             </div>
+             {/* 주문내역 버튼 - 항상 표시 */}
+             <button onClick={() => navigateTo('orders')} className="text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+               주문내역
+             </button>
+           </div>
           <div className="mb-2 lg:mb-3">
             <input type="text" placeholder="검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               className="w-full px-3 lg:px-4 py-2 lg:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-[#374151] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all" />
