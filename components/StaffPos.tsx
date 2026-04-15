@@ -273,7 +273,7 @@ export default function StaffPos() {
 
       const { data: od, error: oe } = await s.from('orders').insert({
         table_id: selectedTableId,
-        total: total,
+        total_amount: total,
         status: 'pending',
       }).select().single();
       if (oe) throw oe;
