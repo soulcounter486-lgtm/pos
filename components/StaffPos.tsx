@@ -338,26 +338,25 @@ export default function StaffPos() {
     if (!tableId || orders.length === 0) return;
     const total = orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
     const orderIds = orders.map(o => o.id);
+    // 테이블 UUID 조회 (orders.table_id 는 UUID)
+    const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === tableId)?.id;
     setLoading(true);
     try {
       const supabase = getSupabase();
       try {
         await supabase.from('sales').insert({
-          table_id: String(tableId).replace(/\D/g, ''),
+          table_id: tableUuid ?? tableId,
           total_amount: total,
           payment_method: method,
           order_count: orders.length
         });
       } catch (e: unknown) { console.error('Sales insert error:', e instanceof Error ? e.message : e); }
 
-      const { data: pendingOrdersData, error: pendingErr } = await supabase
-        .from('orders').select('id').match({ table_id: String(tableId).replace(/\D/g, ''), status: 'pending' });
-      if (pendingErr) throw pendingErr;
-      if (pendingOrdersData && pendingOrdersData.length > 0) {
-        const ids = pendingOrdersData.map(o => o.id);
-        await supabase.from('orders').update({ status: 'completed', payment_method: method }).in('id', ids);
-      }
+      // orderIds를 직접 사용해 대기 중 주문을 완료 처리 (UUID 기반으로 안전)
       if (orderIds.length > 0) {
+        const { error: ordersUpdateErr } = await supabase
+          .from('orders').update({ status: 'completed', payment_method: method }).in('id', orderIds);
+        if (ordersUpdateErr) throw ordersUpdateErr;
         await supabase.from('order_items').update({ status: 'completed' }).in('order_id', orderIds);
       }
       setCurrentView('orders');

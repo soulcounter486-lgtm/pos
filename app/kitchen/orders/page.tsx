@@ -64,6 +64,7 @@ export default function KitchenOrders() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [counts, setCounts] = useState({ pending: 0, completed: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
@@ -119,6 +120,14 @@ export default function KitchenOrders() {
     try {
       setLoading(true);
       const supabase = getSupabase();
+
+      // 탭과 무관하게 전체 건수 파악 (헤더 카운터 정확성)
+      const [{ count: pendingCnt }, { count: completedCnt }] = await Promise.all([
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+      ]);
+      setCounts({ pending: pendingCnt ?? 0, completed: completedCnt ?? 0 });
+
       const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
@@ -196,8 +205,8 @@ export default function KitchenOrders() {
     }
   }
 
-  const pendingCount = orders.filter(o => o.status === 'pending').length;
-  const completedCount = orders.filter(o => o.status === 'completed').length;
+  const pendingCount = counts.pending;
+  const completedCount = counts.completed;
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
