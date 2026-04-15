@@ -84,7 +84,13 @@ export default function StaffPos() {
       const { data: orders, error: ordersError } = await s.from('orders').select('*').order('created_at', { ascending: false });
       console.log('orders 조회 결과:', { orders, ordersError });
       
-      const { data: items, error: itemsError } = await s.from('order_items').select('*');
+      // order_items 조회 시 orders 테이블과 조인하여 table_id 정보를 가져오기
+      const { data: items, error: itemsError } = await s.from('order_items').select(`
+        *,
+        orders:order_id (
+          table_id
+        )
+      `);
       console.log('order_items 조회 결과:', { items, itemsError });
       
       if (ordersError) {
@@ -503,15 +509,11 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
       console.log('결제 완료. 테이블 상태는 변경하지 않습니다.');
 
       // 5. UI 업데이트
-      setSelectedTable(null);
       setCurrentView('orders');
       setPendingOrders([]);
       setMessage('결제 완료!');
-// Reset UI state after successful payment
-setSelectedTable(null);
-setCurrentView('orders');
-setPendingOrders([]);
-
+      
+      // 주문완료 후에도 테이블을 선택한 상태로 유지하여 주문내역을 볼 수 있도록 함
       await fetchOrders();
       await fetchTables();
 
@@ -519,7 +521,6 @@ setPendingOrders([]);
       window.history.replaceState({ main: true }, '', '/staff');
     } catch (e: any) {
       console.error('결제 에러:', e);
-      setSelectedTable(null);
       setCurrentView('orders');
       setPendingOrders([]);
       setMessage('결제 오류: ' + (e.message || '알수없음'));
