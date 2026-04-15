@@ -81,39 +81,18 @@ export default function StaffPos() {
     setLoadingTables(false);
   }
   async function fetchOrders() {
-    console.log('=== fetchOrders 시작 ===');
     try {
       const s = getSupabase();
-      console.log('Supabase 클라이언트 생성됨');
-      
       const { data: orders, error: ordersError } = await s.from('orders').select('*').order('created_at', { ascending: false });
-      console.log('orders 조회 결과:', { orders, ordersError });
-      
-      // order_items 조회
       const { data: items, error: itemsError } = await s.from('order_items').select('*');
-      console.log('order_items 조회 결과:', { items, itemsError });
       
-      if (ordersError) {
-        console.error('orders 조회 오류:', ordersError);
-      }
-      if (itemsError) {
-        console.error('order_items 조회 오류:', itemsError);
-      }
+      if (ordersError) console.error('orders 조회 오류:', ordersError);
+      if (itemsError) console.error('order_items 조회 오류:', itemsError);
       
-      // orders 테이블의 데이터를 allOrders에 저장
       setAllOrders(orders || []); 
       setAllOrderItems(items || []);
-      
-      console.log('데이터 상태 업데이트 완료:', { 
-        ordersCount: orders?.length || 0, 
-        itemsCount: items?.length || 0,
-        sampleOrders: orders?.slice(0, 3),
-        sampleItems: items?.slice(0, 3)
-      });
     } catch (e) { 
       console.error('Orders error:', e); 
-    } finally {
-      console.log('=== fetchOrders 종료 ===');
     }
   }
 
@@ -266,20 +245,14 @@ export default function StaffPos() {
   }
 
   function selectTable(tableId: string) {
-    console.log('=== selectTable 시작 ===');
-    console.log('선택된 테이블:', tableId, typeof tableId);
-    console.log('allOrders table_id 샘플:', allOrders.slice(0,3).map(o => ({ id: o.id, table_id: o.table_id, type: typeof o.table_id })));
-    console.log('tables 샘플:', tables.slice(0,3));
-    
     // 숫자만 추출해서 비교
     const tableIdNum = tableId.replace(/\D/g, '');
     // 테이블에 어떤 상태의 주문이든 있는지 확인 (pending, completed 모두 포함)
     const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === tableIdNum);
-    console.log('필터링된 주문:', tableOrders);
     
-    // 항상 메뉴 화면으로 이동 (주문 추가 편의성)
-    const view = 'menu';
-    console.log('view:', view);
+    // 주문내역 존재 여부에 따라 화면 전환
+    const hasOrder = tableOrders.length > 0;
+    const view = hasOrder ? 'orders' : 'menu';
     
     window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
     setSelectedTable(String(tableId)); setCurrentView(view);
@@ -585,10 +558,8 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
               return aNum - bNum;
             }).map(table => {
               const ts = table.name.replace(/\D/g, ''); // 숫자만 추출
-              console.log('테이블:', table.id, table.name, '→ ts:', ts);
              // 테이블의 모든 주문 가져오기 (pending, completed 모두 포함)
              const tableOrders = allOrders.filter(order => String(order.table_id).replace(/\D/g, '') === String(ts));
-             console.log('테이블', ts, '주문:', tableOrders);
              const hasOrder = tableOrders.length > 0;
              const totalOrders = tableOrders.length;
              const pending = tableOrders.filter(o => o.status === 'pending').length;
@@ -623,7 +594,6 @@ const tableOrderInfo: Record<string, { orders: OrderData[]; totalAmount: number 
     // 숫자만 추출해서 비교
     const tableIdNum = selectedTable?.replace(/\D/g, '');
     const tableOrders = allOrders.filter(o => String(o.table_id).replace(/\D/g, '') === tableIdNum);
-    console.log('주문내역 화면 - selectedTable:', selectedTable, 'tableIdNum:', tableIdNum, 'tableOrders:', tableOrders);
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
         <header className="bg-white border-b border-[#E5E7EB] px-4 lg:px-6 py-4 shadow-sm">
