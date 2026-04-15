@@ -89,6 +89,9 @@ export default function StaffPos() {
   }
 
   async function saveOrderItemQuantity(itemId: string, orderItemId: string, currentQuantity: number, newQuantity: number) {
+    console.log('=== saveOrderItemQuantity 시작 ===');
+    console.log('파라미터:', { itemId, orderItemId, currentQuantity, newQuantity });
+    
     if (newQuantity <= 0) {
       setMessage('수량은 1 이상이어야 합니다.');
       return;
@@ -96,15 +99,19 @@ export default function StaffPos() {
 
     const orderItem = allOrderItems.find(i => i.id === orderItemId);
     if (!orderItem) {
+      console.error('주문 항목을 찾을 수 없음:', orderItemId);
       setMessage('주문 항목을 찾을 수 없습니다.');
       return;
     }
+    console.log('주문 항목 찾음:', orderItem);
 
     const product = products.find(p => p.id === orderItem.product_id);
     if (!product) {
+      console.error('상품을 찾을 수 없음:', orderItem.product_id);
       setMessage('상품을 찾을 수 없습니다.');
       return;
     }
+    console.log('상품 찾음:', product);
 
     // 수량 변경량 계산
     const quantityChange = newQuantity - currentQuantity;
@@ -116,15 +123,19 @@ export default function StaffPos() {
     }
 
     const s = getSupabase();
+    console.log('Supabase 클라이언트 생성됨');
     
     try {
       if (newQuantity === 0) {
         // 수량이 0이면 항목 삭제
+        console.log('항목 삭제 시작');
         const { error } = await s.from('order_items').delete().eq('id', orderItemId);
         if (error) {
+          console.error('주문 항목 삭제 실패:', error);
           setMessage('주문 항목 삭제 실패: ' + error.message);
           return;
         }
+        console.log('항목 삭제 성공');
         setMessage('주문 항목이 삭제되었습니다.');
       } else {
         // 기존 항목의 수량과 가격 업데이트 (수량 * 단가)
@@ -134,22 +145,24 @@ export default function StaffPos() {
           currentQuantity,
           newQuantity,
           productPrice: product.price,
-          newPrice
+          newPrice,
+          order_id: orderItem.order_id
         });
         
         // 1. order_items 업데이트
-        const { error: updateError } = await s.from('order_items').update({ 
+        console.log('order_items 업데이트 시도...');
+        const { error: updateError, data: updateData } = await s.from('order_items').update({ 
           quantity: newQuantity,
           price: newPrice 
         }).eq('id', orderItemId);
         
         if (updateError) {
-          console.error('수량 업데이트 실패:', updateError);
+          console.error('order_items 업데이트 실패:', updateError);
           setMessage('수량 업데이트 실패: ' + updateError.message);
           return;
         }
         
-        console.log('order_items 업데이트 성공');
+        console.log('order_items 업데이트 성공:', updateData);
         
         // 2. 해당 주문의 모든 항목 가격 합계 계산
         console.log('주문 총액 계산 시작, order_id:', orderItem.order_id);
@@ -158,25 +171,29 @@ export default function StaffPos() {
         if (itemsError) {
           console.error('항목 조회 실패:', itemsError);
           // 계속 진행
+        } else {
+          console.log('항목 조회 결과:', items);
         }
         
-        console.log('항목 조회 결과:', items);
         const totalAmount = items?.reduce((sum, item) => sum + item.price, 0) || 0;
         console.log('계산된 총액:', totalAmount);
         
         // 3. 주문 총액 업데이트 (created_at도 업데이트하여 최신순 정렬)
-        const { error: orderUpdateError } = await s.from('orders').update({ 
+        console.log('orders 업데이트 시도...');
+        const { error: orderUpdateError, data: orderUpdateData } = await s.from('orders').update({ 
           created_at: new Date().toISOString(), // 최신순 정렬을 위해 시간 업데이트
           total: totalAmount,
           total_amount: totalAmount 
         }).eq('id', orderItem.order_id);
         
         if (orderUpdateError) {
-          console.error('주문 업데이트 실패:', orderUpdateError);
+          console.error('orders 업데이트 실패:', orderUpdateError);
+          setMessage('주문 업데이트 실패: ' + orderUpdateError.message);
           // 계속 진행
+        } else {
+          console.log('orders 업데이트 성공:', orderUpdateData);
         }
         
-        console.log('orders 업데이트 성공');
         setMessage('수량과 금액이 업데이트되었습니다.');
       }
       
@@ -190,6 +207,7 @@ export default function StaffPos() {
       console.error('수량 업데이트 중 예외 발생:', error);
       setMessage('수량 업데이트 중 오류가 발생했습니다.');
     } finally {
+      console.log('=== saveOrderItemQuantity 종료 ===');
       setEditingOrderItem(null);
     }
   }

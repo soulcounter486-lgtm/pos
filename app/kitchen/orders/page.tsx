@@ -59,6 +59,7 @@ export default function KitchenOrders() {
       
       // Supabase 실시간 구독 설정
       const supabase = getSupabase();
+      console.log('Supabase 실시간 구독 설정 시작...');
       
       // orders 테이블 변경 감지
       const ordersSubscription = supabase
@@ -72,19 +73,32 @@ export default function KitchenOrders() {
           },
           (payload) => {
             console.log('주문 변경 감지:', payload);
+            console.log('이벤트 타입:', payload.eventType);
+            console.log('새 데이터:', payload.new);
+            console.log('이전 데이터:', payload.old);
+            
             fetchOrders(); // 데이터 새로고침
             
             // 새 주문이 추가되면 알림 표시
             if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+              console.log('새 주문 INSERT 감지, 알림 표시');
               showNewOrderNotification(payload.new);
             }
             // 기존 주문이 업데이트되면 알림 표시 (수량 변경 등)
             else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
+              console.log('주문 UPDATE 감지, 알림 표시');
               showOrderUpdateNotification(payload.new);
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('orders 구독 상태:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ orders 테이블 실시간 구독 성공');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ orders 테이블 구독 실패');
+          }
+        });
 
       // order_items 테이블 변경 감지 (수량 변경 등)
       const orderItemsSubscription = supabase
@@ -98,13 +112,25 @@ export default function KitchenOrders() {
           },
           (payload) => {
             console.log('주문 항목 변경 감지:', payload);
+            console.log('이벤트 타입:', payload.eventType);
+            console.log('새 데이터:', payload.new);
+            console.log('이전 데이터:', payload.old);
+            
             fetchOrders(); // 데이터 새로고침
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('order_items 구독 상태:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ order_items 테이블 실시간 구독 성공');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ order_items 테이블 구독 실패');
+          }
+        });
 
       // 컴포넌트 언마운트 시 구독 해제
       return () => {
+        console.log('컴포넌트 언마운트, 구독 해제');
         supabase.removeChannel(ordersSubscription);
         supabase.removeChannel(orderItemsSubscription);
       };
