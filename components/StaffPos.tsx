@@ -245,76 +245,79 @@ export default function StaffPos() {
   async function submitOrder() {
     if (!selectedTable) { setMessage('테이블을 선택하세요'); return; }
     if (cart.length === 0) return;
-    const sub = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-    const tax = cart.reduce((totalTax, item) => {
-      const taxRate = item.tax_rate || 0.1;
-      return totalTax + (item.price * item.quantity * taxRate);
-    }, 0);
-    const total = sub + tax;
+
+    // 음료 카테고리 판별 (즉시 서빙 → completed, 주방 불필요)
+    const isDrink = (item: CartItem) => {
+      const cat = (item.category || '').toLowerCase().trim();
+      return cat.includes('음료') || cat.includes('drink') || cat.includes('beverage') || cat.includes('nước');
+    };
+    const foodCart = cart.filter(i => !isDrink(i));
+    const drinkCart = cart.filter(i => isDrink(i));
+
+    const calcTotal = (items: CartItem[]) =>
+      items.reduce((s, i) => s + i.price * i.quantity * (1 + (i.tax_rate || 0.1)), 0);
+
     setLoading(true);
     try {
       const s = getSupabase();
       const selectedTableId = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
       if (!selectedTableId) throw new Error('테이블을 찾을 수 없습니다: ' + selectedTable);
 
-      // 컬럼명 자동 감지: total_amount → total → 금액 없이
       type InsertResult = { data: { id: string } | null; error: { code?: string; message?: string } | null };
       const isColErr = (e: { code?: string; message?: string } | null) =>
         !!e && (e.code === '42703' || /column.*does not exist|Could not find.*column/i.test(e.message || ''));
 
-      let od: { id: string } | null = null;
-      let oe: { code?: string; message?: string } | null = null;
-
-      ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total_amount: total, status: 'pending' }).select().single() as InsertResult);
-      if (isColErr(oe)) {
-        ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total: total, status: 'pending' }).select().single() as InsertResult);
-      }
-      if (isColErr(oe)) {
-        ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, status: 'pending' }).select().single() as InsertResult);
-      }
-      if (oe) throw new Error(oe.message || '주문 저장 오류');
-      if (!od) throw new Error('주문 생성 실패');
-
-      // note 컬럼 포함 시도, 없으면 fallback
-      const itemsWithNote = cart.map(i => ({
-        order_id: od.id,
-        product_id: i.id,
-        quantity: i.quantity,
-        price: i.price * i.quantity,
-        note: cartMemos[i.id] || null,
-      }));
-      let { error: itemError } = await s.from('order_items').insert(itemsWithNote);
-      if (itemError && (itemError.code === '42703' || itemError.message?.includes('note'))) {
-        const itemsWithoutNote = itemsWithNote.map(({ note, ...rest }) => rest);
-        ({ error: itemError } = await s.from('order_items').insert(itemsWithoutNote));
-      }
-      if (itemError) throw itemError;
-
-      // 낙관적 업데이트: DB fetch 결과를 기다리지 않고 즉시 state 반영
-      const newOrder: OrderData = {
-        id: od.id,
-        table_id: selectedTableId,
-        total_amount: total,
-        total: total,
-        status: 'pending',
-        created_at: new Date().toISOString(),
+      // 주문 1건 insert (status 지정)
+      const insertOrder = async (status: string, total: number) => {
+        let od: { id: string } | null = null;
+        let oe: { code?: string; message?: string } | null = null;
+        ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total_amount: total, status }).select().single() as InsertResult);
+        if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total, status }).select().single() as InsertResult);
+        if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, status }).select().single() as InsertResult);
+        if (oe) throw new Error(oe.message || '주문 저장 오류');
+        if (!od) throw new Error('주문 생성 실패');
+        return od;
       };
-      const newItems: OrderItemData[] = cart.map(i => ({
-        id: crypto.randomUUID(),
-        order_id: od.id,
-        product_id: i.id,
-        quantity: i.quantity,
-        price: i.price * i.quantity,
-        status: 'pending',
-        note: cartMemos[i.id] || undefined,
-      }));
-      setAllOrders(prev => [newOrder, ...prev]);
-      setAllOrderItems(prev => [...prev, ...newItems]);
+
+      // 아이템 insert (note 컬럼 없으면 fallback)
+      const insertItems = async (orderId: string, items: CartItem[]) => {
+        const withNote = items.map(i => ({ order_id: orderId, product_id: i.id, quantity: i.quantity, price: i.price * i.quantity, note: cartMemos[i.id] || null }));
+        let { error } = await s.from('order_items').insert(withNote);
+        if (error && (error.code === '42703' || error.message?.includes('note'))) {
+          const withoutNote = withNote.map(({ note, ...rest }) => rest);
+          ({ error } = await s.from('order_items').insert(withoutNote));
+        }
+        if (error) throw error;
+      };
+
+      const optimisticOrders: OrderData[] = [];
+      const optimisticItems: OrderItemData[] = [];
+
+      // 음식 주문 → pending (주방 전송)
+      if (foodCart.length > 0) {
+        const foodTotal = calcTotal(foodCart);
+        const foodOrder = await insertOrder('pending', foodTotal);
+        await insertItems(foodOrder.id, foodCart);
+        optimisticOrders.push({ id: foodOrder.id, table_id: selectedTableId, total_amount: foodTotal, total: foodTotal, status: 'pending', created_at: new Date().toISOString() });
+        foodCart.forEach(i => optimisticItems.push({ id: crypto.randomUUID(), order_id: foodOrder.id, product_id: i.id, quantity: i.quantity, price: i.price * i.quantity, status: 'pending', note: cartMemos[i.id] || undefined }));
+      }
+
+      // 음료 주문 → completed (즉시 서빙, 주방 불필요)
+      if (drinkCart.length > 0) {
+        const drinkTotal = calcTotal(drinkCart);
+        const drinkOrder = await insertOrder('completed', drinkTotal);
+        await insertItems(drinkOrder.id, drinkCart);
+        optimisticOrders.push({ id: drinkOrder.id, table_id: selectedTableId, total_amount: drinkTotal, total: drinkTotal, status: 'completed', created_at: new Date().toISOString() });
+        drinkCart.forEach(i => optimisticItems.push({ id: crypto.randomUUID(), order_id: drinkOrder.id, product_id: i.id, quantity: i.quantity, price: i.price * i.quantity, status: 'completed', note: cartMemos[i.id] || undefined }));
+      }
+
+      setAllOrders(prev => [...optimisticOrders, ...prev]);
+      setAllOrderItems(prev => [...prev, ...optimisticItems]);
       setCart([]);
       setCartMemos({});
       setMessage('주문이 완료되었습니다!');
       navigateTo('orders');
-      fetchOrders(); // 백그라운드에서 실제 DB 데이터로 갱신 (await 없음)
+      fetchOrders();
     } catch (e: unknown) {
       console.error('주문 처리 중 오류 발생:', e);
       let errMsg = '';
@@ -889,7 +892,7 @@ export default function StaffPos() {
                 </span>
               </div>
               <div>
-                {tableCompletedOrders.flatMap(order => renderOrderItems(order, false))}
+                {tableCompletedOrders.flatMap(order => renderOrderItems(order, true))}
               </div>
             </div>
           )}
