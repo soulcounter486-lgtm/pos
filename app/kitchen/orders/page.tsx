@@ -129,39 +129,45 @@ export default function KitchenOrders() {
       ]);
       setCounts({ pending: pendingCnt ?? 0, completed: completedCnt ?? 0 });
 
-      const { data, error: fetchError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          tables ( name ),
-          order_items (
-            id,
-            order_id,
-            product_id,
-            quantity,
-            price,
-            note,
-            products (
-              name,
-              image_url,
-              category
+      const [ordersResult, tablesResult] = await Promise.all([
+        supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              order_id,
+              product_id,
+              quantity,
+              price,
+              note,
+              products (
+                name,
+                image_url,
+                category
+              )
             )
-          )
-        `)
-        .eq('status', activeTab)
-        .order('created_at', { ascending: false });
+          `)
+          .eq('status', activeTab)
+          .order('created_at', { ascending: false }),
+        supabase.from('tables').select('id, name'),
+      ]);
 
-      if (fetchError) {
-        setError('주문 조회 실패: ' + fetchError.message);
+      if (ordersResult.error) {
+        setError('주문 조회 실패: ' + ordersResult.error.message);
         setLoading(false);
         return;
       }
 
-      const processedOrders: Order[] = (data || []).map((order: any) => ({
+      const tablesMap = new Map(
+        (tablesResult.data || []).map((t: any) => [String(t.id), t.name as string])
+      );
+
+      const processedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
         id: order.id,
         table_id: order.table_id,
-        table_name: order.tables?.name || null,
-        total: order.total,
+        table_name: tablesMap.get(String(order.table_id)) || undefined,
+        total: order.total_amount ?? order.total,
         status: order.status,
         created_at: order.created_at,
         order_items: (order.order_items || []).map((item: any) => ({
