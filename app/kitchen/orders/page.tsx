@@ -71,7 +71,7 @@ export default function KitchenOrders() {
   const [error, setError] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [notification, setNotification] = useState<{ show: boolean; tableId: string; orderId: string; type?: string } | null>(null);
-  const fetchOrdersRef = useRef<() => Promise<void>>();
+  const fetchOrdersRef = useRef<(silent?: boolean) => Promise<void>>();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -110,7 +110,7 @@ export default function KitchenOrders() {
     const ordersSubscription = supabase
       .channel('kitchen-orders-' + Date.now())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        fetchOrdersRef.current?.();
+        fetchOrdersRef.current?.(true);
         if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
           showNewOrderNotification(payload.new);
         } else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
@@ -121,7 +121,7 @@ export default function KitchenOrders() {
     const orderItemsSubscription = supabase
       .channel('kitchen-items-' + Date.now())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        fetchOrdersRef.current?.();
+        fetchOrdersRef.current?.(true);
       })
       .subscribe();
     return () => {
@@ -132,13 +132,13 @@ export default function KitchenOrders() {
 
   // 5초 폴링 백업 (실시간 구독이 안 될 경우 대비)
   useEffect(() => {
-    const interval = setInterval(() => { fetchOrdersRef.current?.(); }, 5000);
+    const interval = setInterval(() => { fetchOrdersRef.current?.(true); }, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  async function fetchOrders() {
+  async function fetchOrders(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const supabase = getSupabase();
       const currentTab = activeTabRef.current;
 
@@ -197,10 +197,12 @@ export default function KitchenOrders() {
       });
 
       setOrders(processedOrders);
-      setLoading(false);
+      if (!silent) setLoading(false);
     } catch (err) {
-      setError('오류 발생: ' + err);
-      setLoading(false);
+      if (!silent) {
+        setError('오류 발생: ' + err);
+        setLoading(false);
+      }
     }
   }
 
