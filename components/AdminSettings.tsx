@@ -61,12 +61,19 @@ export default function AdminSettings() {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const { error } = await supabase.from('settings').upsert({
+      const payload = {
         id: 'default',
         ...form,
         updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
+      };
+      let { error } = await supabase.from('settings').upsert(payload);
+      if (error) {
+        const { error: insertError } = await supabase.from('settings').insert(payload);
+        if (insertError) throw insertError;
+        error = null;
+      }
+      const { error: verifyError } = await supabase.from('settings').update(payload).eq('id', 'default');
+      if (verifyError) throw verifyError;
       await fetchSettings();
       setMessage('저장되었습니다.');
     } catch (e) {
