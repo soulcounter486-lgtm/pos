@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearAuth, getAuth } from '@/lib/auth';
 import StaffPos from '@/components/StaffPos';
+import { getSupabase } from '@/lib/supabaseClient';
 
 export default function StaffPage() {
   const router = useRouter();
   const [userId, setUserId] = useState('');
   const [now, setNow] = useState('');
   const [loading, setLoading] = useState(true);
+  const [headerText, setHeaderText] = useState('POS 시스템');
 
   useEffect(() => {
     const { role, userId: uid } = getAuth();
@@ -24,6 +26,13 @@ export default function StaffPage() {
     const tick = () => setNow(new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
     tick();
     const timer = setInterval(tick, 60000);
+
+    // 설정 불러오기
+    const supabase = getSupabase();
+    supabase.from('settings').select('staff_header_text').eq('id', 'default').single().then(({ data }) => {
+      if (data?.staff_header_text) setHeaderText(data.staff_header_text);
+    });
+
     return () => clearInterval(timer);
   }, [router]);
 
@@ -51,7 +60,7 @@ export default function StaffPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-white font-semibold text-lg">POS 시스템</h1>
+              <h1 className="text-white font-semibold text-lg">{headerText}</h1>
               <p className="text-gray-400 text-sm">직원 모드</p>
             </div>
           </div>
