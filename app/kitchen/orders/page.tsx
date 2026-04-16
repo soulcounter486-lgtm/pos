@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabaseClient';
 
@@ -64,12 +64,14 @@ function playNotificationSound() {
 export default function KitchenOrders() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
+  const activeTabRef = useRef<Tab>('pending');
   const [orders, setOrders] = useState<Order[]>([]);
   const [counts, setCounts] = useState({ pending: 0, completed: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [notification, setNotification] = useState<{ show: boolean; tableId: string; orderId: string; type?: string } | null>(null);
+  const fetchOrdersRef = useRef<() => Promise<void>>();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -88,39 +90,57 @@ export default function KitchenOrders() {
         return;
       }
       fetchOrders();
-
-      const supabase = getSupabase();
-
-      const ordersSubscription = supabase
-        .channel('orders-channel')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-          fetchOrders();
-          if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
-            showNewOrderNotification(payload.new);
-          } else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
-            showOrderUpdateNotification(payload.new);
-          }
-        })
-        .subscribe();
-
-      const orderItemsSubscription = supabase
-        .channel('order-items-channel')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-          fetchOrders();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(ordersSubscription);
-        supabase.removeChannel(orderItemsSubscription);
-      };
     }
-  }, [router, activeTab]);
+  }, [router]);
+
+  // activeTab이 바뀔 때마다 ref 동기화 + 즉시 재조회
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    fetchOrders();
+  }, [activeTab]);
+
+  // fetchOrders 최신 버전을 ref에 보관 (실시간 콜백 stale-closure 방지)
+  useEffect(() => {
+    fetchOrdersRef.current = fetchOrders;
+  });
+
+  // 실시간 구독 (한 번만 설정, ref 통해 최신 fetchOrders 호출)
+  useEffect(() => {
+    const supabase = getSupabase();
+    const ordersSubscription = supabase
+      .channel('kitchen-orders-' + Date.now())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        fetchOrdersRef.current?.();
+        if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+          showNewOrderNotification(payload.new);
+        } else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
+          showOrderUpdateNotification(payload.new);
+        }
+      })
+      .subscribe();
+    const orderItemsSubscription = supabase
+      .channel('kitchen-items-' + Date.now())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+        fetchOrdersRef.current?.();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ordersSubscription);
+      supabase.removeChannel(orderItemsSubscription);
+    };
+  }, []);
+
+  // 5초 폴링 백업 (실시간 구독이 안 될 경우 대비)
+  useEffect(() => {
+    const interval = setInterval(() => { fetchOrdersRef.current?.(); }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function fetchOrders() {
     try {
       setLoading(true);
       const supabase = getSupabase();
+      const currentTab = activeTabRef.current;
 
       // 탭과 무관하게 전체 건수 파악 (헤더 카운터 정확성)
       const [{ count: pendingCnt }, { count: completedCnt }] = await Promise.all([
@@ -130,7 +150,7 @@ export default function KitchenOrders() {
       setCounts({ pending: pendingCnt ?? 0, completed: completedCnt ?? 0 });
 
       const [ordersResult, itemsResult, tablesResult, productsResult] = await Promise.all([
-        supabase.from('orders').select('*').eq('status', activeTab).order('created_at', { ascending: false }),
+        supabase.from('orders').select('*').eq('status', currentTab).order('created_at', { ascending: false }),
         supabase.from('order_items').select('*'),
         supabase.from('tables').select('id, name'),
         supabase.from('products').select('id, name, image_url, category'),

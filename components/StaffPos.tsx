@@ -160,24 +160,47 @@ export default function StaffPos() {
     finally { setLoading(false); }
   }
 
-  // 기존 주문 아이템 수량 수정 (수량 증가=추가, 감소=취소)
+  // 기존 주문 아이템 수량 수정 (수량 증가=추가, 감소=취소 → 완료주문이면 주방에 알림)
   async function updateOrderItemQuantity(itemId: string, orderId: string, delta: number) {
     const item = allOrderItems.find(i => i.id === itemId);
     if (!item) return;
+    const order = allOrders.find(o => o.id === orderId);
     const newQty = item.quantity + delta;
+    const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
     const s = getSupabase();
     setLoading(true);
     try {
+      // 1. 기존 아이템 수량 업데이트
       if (newQty <= 0) {
         await s.from('order_items').delete().eq('id', itemId);
         const remaining = allOrderItems.filter(i => i.order_id === orderId && i.id !== itemId);
-        if (remaining.length === 0) {
-          await s.from('orders').delete().eq('id', orderId);
-        }
+        if (remaining.length === 0) await s.from('orders').delete().eq('id', orderId);
       } else {
-        const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
         await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', itemId);
       }
+
+      // 2. 조리완료 주문 변경 → 주방에 새 pending 주문으로 알림
+      if (order?.status === 'completed') {
+        const absDelta = newQty <= 0 ? item.quantity : Math.abs(delta);
+        const isCancel = delta < 0 || newQty <= 0;
+        const note = isCancel ? `[취소] ${absDelta}개 취소` : `[추가] +${absDelta}개 추가`;
+
+        const { data: kitchenOrder } = await s.from('orders').insert({
+          table_id: order.table_id,
+          total_amount: unitPrice * absDelta,
+          status: 'pending',
+        }).select().single();
+
+        if (kitchenOrder) {
+          const kitchenItem = { order_id: kitchenOrder.id, product_id: item.product_id, quantity: absDelta, price: unitPrice * absDelta, note };
+          let { error: kiErr } = await s.from('order_items').insert(kitchenItem);
+          if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
+            const { note: _n, ...kitchenItemNoNote } = kitchenItem;
+            await s.from('order_items').insert(kitchenItemNoNote);
+          }
+        }
+      }
+
       await fetchOrders();
     } catch (e) { console.error(e); setMessage('수정 실패'); }
     finally { setLoading(false); }
