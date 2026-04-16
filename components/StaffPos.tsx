@@ -132,11 +132,11 @@ export default function StaffPos() {
     window.history.pushState({ ts: selectedTable, view }, '', `/staff?table=${selectedTable}&view=${view}`);
   }
 
-  function selectTable(tableId: string) {
+  function selectTable(tableId: string, view: 'orders' | 'menu' = 'menu') {
     const tableIdNum = tableId.replace(/\D/g, '');
     setSelectedTable(tableIdNum);
-    setCurrentView('menu');
-    window.history.pushState({ ts: tableId, view: 'menu' }, '', `/staff?table=${tableId}&view=menu`);
+    setCurrentView(view);
+    window.history.pushState({ ts: tableId, view }, '', `/staff?table=${tableId}&view=${view}`);
   }
 
   function goBack() {
@@ -542,8 +542,10 @@ export default function StaffPos() {
               const pendingCount = tableOrders.filter(o => o.status === 'pending').length;
               const isMergeSelected = mergedTables.includes(ts);
 
-              // 합석 모드: 클릭 시 테이블 선택 토글 / 일반 모드: 테이블 상세로 이동
-              const handleClick = isMergeMode ? () => toggleMergeTable(ts) : () => selectTable(ts);
+              // 합석 모드: 클릭 시 테이블 선택 토글 / 주문 있으면 주문내역, 없으면 메뉴로 이동
+              const handleClick = isMergeMode
+                ? () => toggleMergeTable(ts)
+                : () => selectTable(ts, tableOrders.length > 0 ? 'orders' : 'menu');
 
               return (
                 <button key={table.id} onClick={handleClick}
