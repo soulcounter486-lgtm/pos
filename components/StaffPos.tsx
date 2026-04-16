@@ -10,7 +10,7 @@ type CartItem = Product & { quantity: number };
 type Table = { id: string; name: string; status: string };
 type OrderData = { id: string; table_id: string; total: number; status: string; created_at: string; total_amount?: number; tax_amount?: number };
 type OrderItemData = { id: string; order_id: string; product_id: string; quantity: number; price: number; unit_price?: number; status: string; note?: string };
-type Settings = { bank_name: string; account_number: string; account_holder: string; receipt_header: string };
+type Settings = { bank_name: string; account_number: string; account_holder: string; receipt_header: string; staff_header_text: string };
 
 export default function StaffPos() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,7 +38,7 @@ export default function StaffPos() {
   // 영수증 · 설정
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showTransferQR, setShowTransferQR] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: 'POS 레스토랑' });
+  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: 'POS 레스토랑', staff_header_text: '회사아이콘 pos 시스템' });
 
   // 뒤로가기 처리
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function StaffPos() {
     try {
       const s = getSupabase();
       const { data } = await s.from('settings').select('*').eq('id', 'default').single();
-      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', receipt_header: data.receipt_header || 'POS 레스토랑' });
+      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', receipt_header: data.receipt_header || 'POS 레스토랑', staff_header_text: data.staff_header_text || '회사아이콘 pos 시스템' });
     } catch (e) { console.warn('설정 로드 실패 (settings 테이블 없음):', e); }
   }
 

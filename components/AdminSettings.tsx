@@ -8,6 +8,7 @@ type Settings = {
   account_number: string;
   account_holder: string;
   receipt_header: string;
+  staff_header_text: string;
 };
 
 export default function AdminSettings() {
@@ -16,6 +17,7 @@ export default function AdminSettings() {
     account_number: '',
     account_holder: '',
     receipt_header: 'POS 레스토랑',
+    staff_header_text: '회사아이콘 pos 시스템',
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export default function AdminSettings() {
           account_number: data.account_number || '',
           account_holder: data.account_holder || '',
           receipt_header: data.receipt_header || 'POS 레스토랑',
+          staff_header_text: data.staff_header_text || '회사아이콘 pos 시스템',
         });
       }
     } catch (e) {
@@ -93,6 +96,20 @@ export default function AdminSettings() {
               value={form.receipt_header}
               onChange={e => setForm({ ...form, receipt_header: e.target.value })}
               placeholder="예: ☕ Pho Cha Restaurant"
+            />
+          </label>
+        </div>
+
+        <div className="card">
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">직원 메인 헤더</h2>
+          <p className="text-sm text-slate-500 mb-5">직원 메인페이지 상단에 표시될 문구를 설정합니다.</p>
+          <label className="field-label">
+            상단 문구
+            <input
+              className="input-base mt-2"
+              value={form.staff_header_text}
+              onChange={e => setForm({ ...form, staff_header_text: e.target.value })}
+              placeholder="예: 회사아이콘 pos 시스템"
             />
           </label>
         </div>
@@ -162,6 +179,7 @@ export default function AdminSettings() {
   account_number text NOT NULL DEFAULT '',
   account_holder text NOT NULL DEFAULT '',
   receipt_header text NOT NULL DEFAULT 'POS 레스토랑',
+  staff_header_text text NOT NULL DEFAULT '회사아이콘 pos 시스템',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO settings (id) VALUES ('default')
