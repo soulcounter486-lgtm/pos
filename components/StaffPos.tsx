@@ -418,7 +418,7 @@ export default function StaffPos() {
 
     // 결제 금액: pending + completed(조리완료) 전부 포함
     const allActiveOrders = allOrders.filter(o =>
-      mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed')
+      mergedUuids.some(uid => String(uid) === String(o.table_id)) && (o.status === 'pending' || o.status === 'completed')
     );
     if (allActiveOrders.length === 0) {
       setMessage('결제할 주문이 없습니다.');
@@ -486,7 +486,7 @@ export default function StaffPos() {
     const mergedGrandTotal = mergedTables.reduce((sum, ts) => {
       const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === ts)?.id;
       if (!tableUuid) return sum;
-      const orders = allOrders.filter(o => o.table_id === tableUuid && (o.status === 'pending' || o.status === 'completed'));
+      const orders = allOrders.filter(o => String(o.table_id) === String(tableUuid) && (o.status === 'pending' || o.status === 'completed'));
       return sum + orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
     }, 0);
 
@@ -534,7 +534,7 @@ export default function StaffPos() {
               return aNum - bNum;
             }).map(table => {
               const ts = table.name.replace(/\D/g, '');
-              const tableOrders = allOrders.filter(order => order.table_id === table.id);
+              const tableOrders = allOrders.filter(order => String(order.table_id) === String(table.id));
               const hasPendingOrders = tableOrders.some(o => o.status === 'pending');
               const hasCompletedOrders = tableOrders.some(o => o.status === 'completed') && !hasPendingOrders;
               const total = tableOrders.reduce((sum, order) => sum + (order.total_amount !== undefined ? order.total_amount : order.total), 0);
@@ -604,7 +604,7 @@ export default function StaffPos() {
 
     // 합산 주문 + 합계
     const mergedAllOrders = allOrders.filter(o =>
-      mergedUuids.includes(o.table_id) && (o.status === 'pending' || o.status === 'completed')
+      mergedUuids.some(uid => String(uid) === String(o.table_id)) && (o.status === 'pending' || o.status === 'completed')
     );
     const mergedGrandTotal = mergedAllOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
     // 결제 금액은 pending 주문만 (기존 결제 기준과 일치)
@@ -635,7 +635,7 @@ export default function StaffPos() {
           {mergedTables.map(ts => {
             const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === ts)?.id;
             if (!tableUuid) return null;
-            const tableOrders = allOrders.filter(o => o.table_id === tableUuid && (o.status === 'pending' || o.status === 'completed'));
+            const tableOrders = allOrders.filter(o => String(o.table_id) === String(tableUuid) && (o.status === 'pending' || o.status === 'completed'));
             const tableTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
             const hasPending = tableOrders.some(o => o.status === 'pending');
             if (tableOrders.length === 0) return null;
@@ -766,7 +766,7 @@ export default function StaffPos() {
 
     const tableOrders = allOrders.filter(o => {
       const status = String(o.status).toLowerCase().trim();
-      return o.table_id === selectedTableUuid && (status === 'completed' || status === 'pending');
+      return String(o.table_id) === String(selectedTableUuid) && (status === 'completed' || status === 'pending');
     });
 
     const tablePendingOrders = tableOrders.filter(o => o.status === 'pending');
