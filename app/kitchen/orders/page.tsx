@@ -200,7 +200,6 @@ export default function KitchenOrders() {
       const supabase = getSupabase();
       const { error: updateError } = await supabase.from('orders').update({ status: 'completed' }).eq('id', orderId);
       if (updateError) { alert('주문 상태 업데이트 실패'); return; }
-      setActiveTab('completed');
       fetchOrders();
     } catch (error) {
       alert('주문 완료 처리 중 오류가 발생했습니다.');
