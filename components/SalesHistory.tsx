@@ -10,7 +10,7 @@ type Sale = {
   total_amount: number;
   order_count: number;
   table_id: string | null;
-  tables?: { name: string } | null;
+  table_name?: string | null;
 };
 
 export default function SalesHistory() {
@@ -28,25 +28,36 @@ export default function SalesHistory() {
     setLoading(true);
     setMessage(null);
     const supabase = getSupabase();
-    let query = supabase
-      .from('sales')
-      .select('*, tables(name)')
-      .order('created_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('sales')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (fromDate) {
-      query = query.gte('created_at', `${fromDate}T00:00:00Z`);
-    }
-    if (toDate) {
-      query = query.lte('created_at', `${toDate}T23:59:59Z`);
-    }
+      if (fromDate) query = query.gte('created_at', `${fromDate}T00:00:00Z`);
+      if (toDate) query = query.lte('created_at', `${toDate}T23:59:59Z`);
 
-    const { data, error } = await query;
-    setLoading(false);
-    if (error) {
-      setMessage('판매 내역을 불러오는 중 오류가 발생했습니다: ' + error.message);
-      return;
+      const [{ data: salesData, error: salesErr }, { data: tablesData }] = await Promise.all([
+        query,
+        supabase.from('tables').select('id, name'),
+      ]);
+
+      if (salesErr) {
+        setMessage('판매 내역을 불러오는 중 오류가 발생했습니다: ' + salesErr.message);
+        return;
+      }
+
+      const tablesMap = new Map((tablesData || []).map((t: any) => [String(t.id), t.name as string]));
+      const merged: Sale[] = (salesData || []).map((s: any) => ({
+        ...s,
+        table_name: s.table_id ? (tablesMap.get(String(s.table_id)) ?? null) : null,
+      }));
+      setSales(merged);
+    } catch (e) {
+      setMessage('판매 내역을 불러오는 중 오류가 발생했습니다: ' + String(e));
+    } finally {
+      setLoading(false);
     }
-    setSales(data || []);
   }
 
   const totalSales = useMemo(
@@ -119,7 +130,7 @@ export default function SalesHistory() {
                 {sales.map((sale) => (
                   <tr key={sale.id}>
                     <td className="px-4 py-4 text-slate-600">{new Date(sale.created_at).toLocaleString('ko-KR')}</td>
-                    <td className="px-4 py-4 font-medium text-slate-900">{sale.tables?.name || '-'}</td>
+                    <td className="px-4 py-4 font-medium text-slate-900">{sale.table_name || '-'}</td>
                     <td className="px-4 py-4 text-slate-600">{methodLabel(sale.payment_method)}</td>
                     <td className="px-4 py-4 text-slate-600 text-center">{sale.order_count}</td>
                     <td className="px-4 py-4 font-semibold text-slate-900">{(sale.total_amount || 0).toLocaleString()} VND</td>
