@@ -129,28 +129,14 @@ export default function KitchenOrders() {
       ]);
       setCounts({ pending: pendingCnt ?? 0, completed: completedCnt ?? 0 });
 
-      const [ordersResult, tablesResult] = await Promise.all([
+      const [ordersResult, tablesResult, productsResult] = await Promise.all([
         supabase
           .from('orders')
-          .select(`
-            *,
-            order_items (
-              id,
-              order_id,
-              product_id,
-              quantity,
-              price,
-              note,
-              products (
-                name,
-                image_url,
-                category
-              )
-            )
-          `)
+          .select(`*, order_items ( id, order_id, product_id, quantity, price, note )`)
           .eq('status', activeTab)
           .order('created_at', { ascending: false }),
         supabase.from('tables').select('id, name'),
+        supabase.from('products').select('id, name, image_url, category'),
       ]);
 
       if (ordersResult.error) {
@@ -162,6 +148,9 @@ export default function KitchenOrders() {
       const tablesMap = new Map(
         (tablesResult.data || []).map((t: any) => [String(t.id), t.name as string])
       );
+      const productsMap = new Map(
+        (productsResult.data || []).map((p: any) => [String(p.id), p])
+      );
 
       const processedOrders: Order[] = (ordersResult.data || []).map((order: any) => ({
         id: order.id,
@@ -170,17 +159,20 @@ export default function KitchenOrders() {
         total: order.total_amount ?? order.total,
         status: order.status,
         created_at: order.created_at,
-        order_items: (order.order_items || []).map((item: any) => ({
-          id: item.id,
-          order_id: item.order_id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: item.price,
-          note: item.note || null,
-          product_name: item.products?.name || 'Unknown',
-          product_image_url: item.products?.image_url || null,
-          category: item.products?.category || 'Unknown'
-        }))
+        order_items: (order.order_items || []).map((item: any) => {
+          const product = productsMap.get(String(item.product_id));
+          return {
+            id: item.id,
+            order_id: item.order_id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.price,
+            note: item.note || null,
+            product_name: product?.name || 'Unknown',
+            product_image_url: product?.image_url || null,
+            category: product?.category || 'Unknown',
+          };
+        }),
       }));
 
       setOrders(processedOrders);
