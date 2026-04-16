@@ -158,12 +158,13 @@ export default function AdminSettings() {
           <h2 className="text-xl font-semibold text-slate-900 mb-1">직원 메인 헤더</h2>
           <p className="text-sm text-slate-500 mb-5">직원 메인페이지 상단에 표시될 문구를 설정합니다.</p>
           <label className="field-label">
-            상단 문구
-            <input
-              className="input-base mt-2"
+            상단 문구 (Enter키로 줄바꿈 가능)
+            <textarea
+              className="input-base mt-2 resize-none"
+              rows={3}
               value={form.staff_header_text}
               onChange={e => setForm({ ...form, staff_header_text: e.target.value })}
-              placeholder="예: 🏠 Pho Cha POS 시스템"
+              placeholder={"예: 🏠 Pho Cha\nPOS 시스템"}
             />
           </label>
           {hasStaffHeaderCol === false && (
