@@ -21,20 +21,42 @@ export default function AdminSettings() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [hasStaffHeaderCol, setHasStaffHeaderCol] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetchSettings();
+    checkColumnAndLoad();
   }, []);
 
   useEffect(() => {
     if (message) {
-      const t = setTimeout(() => setMessage(null), 3000);
+      const t = setTimeout(() => setMessage(null), 5000);
       return () => clearTimeout(t);
     }
   }, [message]);
 
-  async function fetchSettings() {
+  function showMsg(text: string, type: 'success' | 'error' = 'success') {
+    setMessage(text);
+    setMessageType(type);
+  }
+
+  async function checkColumnAndLoad() {
     setLoading(true);
+    try {
+      // 컬럼 존재 여부 확인 (migrate API)
+      const res = await fetch('/api/migrate-settings');
+      if (res.ok) {
+        const info = await res.json();
+        setHasStaffHeaderCol(info.hasStaffHeaderColumn);
+      }
+    } catch (e) {
+      console.warn('마이그레이션 API 호출 실패:', e);
+    }
+    await fetchSettings();
+    setLoading(false);
+  }
+
+  async function fetchSettings() {
     try {
       const supabase = getSupabase();
       const { data, error } = await supabase.from('settings').select('*').eq('id', 'default').single();
@@ -47,12 +69,14 @@ export default function AdminSettings() {
           receipt_header: data.receipt_header || 'POS 레스토랑',
           staff_header_text: data.staff_header_text || '회사아이콘 pos 시스템',
         });
+        // 컬럼 존재 여부 재확인
+        if (hasStaffHeaderCol === null) {
+          setHasStaffHeaderCol('staff_header_text' in data);
+        }
       }
     } catch (e) {
       console.error('설정 불러오기 오류:', e);
-      setMessage('설정을 불러오지 못했습니다. settings 테이블이 생성되었는지 확인해주세요.');
-    } finally {
-      setLoading(false);
+      showMsg('설정을 불러오지 못했습니다.', 'error');
     }
   }
 
@@ -61,24 +85,45 @@ export default function AdminSettings() {
     setLoading(true);
     try {
       const supabase = getSupabase();
-      const payload = {
+      const { bank_name, account_number, account_holder, receipt_header, staff_header_text } = form;
+
+      // staff_header_text 포함해서 우선 시도
+      const fullPayload = {
         id: 'default',
-        ...form,
+        bank_name,
+        account_number,
+        account_holder,
+        receipt_header,
+        staff_header_text,
         updated_at: new Date().toISOString(),
       };
-      let { error } = await supabase.from('settings').upsert(payload);
-      if (error) {
-        const { error: insertError } = await supabase.from('settings').insert(payload);
-        if (insertError) throw insertError;
-        error = null;
+
+      let { error } = await supabase.from('settings').upsert(fullPayload);
+
+      // 컬럼 없는 경우 (42703: column does not exist)
+      const isColErr = (err: typeof error) =>
+        !!err && (err.code === '42703' || /Could not find.*column|staff_header_text/i.test(err.message || ''));
+
+      if (isColErr(error)) {
+        // staff_header_text 없이 저장
+        const basePayload = { id: 'default', bank_name, account_number, account_holder, receipt_header, updated_at: new Date().toISOString() };
+        const { error: e2 } = await supabase.from('settings').upsert(basePayload);
+        if (e2) throw e2;
+        setHasStaffHeaderCol(false);
+        showMsg('나머지 설정은 저장됐습니다. 직원 헤더를 저장하려면 아래 SQL을 실행해주세요.', 'error');
+        setLoading(false);
+        return;
       }
-      const { error: verifyError } = await supabase.from('settings').update(payload).eq('id', 'default');
-      if (verifyError) throw verifyError;
+
+      if (error) throw error;
+
+      setHasStaffHeaderCol(true);
       await fetchSettings();
-      setMessage('저장되었습니다.');
-    } catch (e) {
+      showMsg('저장되었습니다.');
+    } catch (e: unknown) {
       console.error('설정 저장 오류:', e);
-      setMessage('저장 실패. settings 테이블이 있는지 확인해주세요.');
+      const msg = e instanceof Error ? e.message : String(e);
+      showMsg('저장 실패: ' + msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -87,7 +132,7 @@ export default function AdminSettings() {
   return (
     <div className="space-y-8">
       {message && (
-        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${message.includes('실패') || message.includes('못했') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${messageType === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
           {message}
         </div>
       )}
@@ -108,6 +153,7 @@ export default function AdminSettings() {
           </label>
         </div>
 
+        {/* 직원 메인 헤더 */}
         <div className="card">
           <h2 className="text-xl font-semibold text-slate-900 mb-1">직원 메인 헤더</h2>
           <p className="text-sm text-slate-500 mb-5">직원 메인페이지 상단에 표시될 문구를 설정합니다.</p>
@@ -117,9 +163,21 @@ export default function AdminSettings() {
               className="input-base mt-2"
               value={form.staff_header_text}
               onChange={e => setForm({ ...form, staff_header_text: e.target.value })}
-              placeholder="예: 회사아이콘 pos 시스템"
+              placeholder="예: 🏠 Pho Cha POS 시스템"
             />
           </label>
+          {hasStaffHeaderCol === false && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs text-red-700 font-semibold mb-2">⚠️ DB 컬럼 추가 필요</p>
+              <p className="text-xs text-red-600 mb-2">아래 SQL을 Supabase SQL Editor에서 실행하면 저장됩니다.</p>
+              <pre className="text-xs bg-white rounded p-2 border border-red-200 text-slate-700 font-mono overflow-x-auto">
+                {`ALTER TABLE settings\n  ADD COLUMN IF NOT EXISTS staff_header_text\n  text NOT NULL DEFAULT '회사아이콘 pos 시스템';`}
+              </pre>
+            </div>
+          )}
+          {hasStaffHeaderCol === true && (
+            <p className="mt-2 text-xs text-green-600">✅ DB 컬럼 정상</p>
+          )}
         </div>
 
         {/* 은행정보 */}
@@ -191,7 +249,12 @@ export default function AdminSettings() {
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO settings (id) VALUES ('default')
-  ON CONFLICT (id) DO NOTHING;`}
+  ON CONFLICT (id) DO NOTHING;
+
+-- 기존 테이블에 컬럼만 추가할 경우:
+ALTER TABLE settings
+  ADD COLUMN IF NOT EXISTS staff_header_text
+  text NOT NULL DEFAULT '회사아이콘 pos 시스템';`}
         </pre>
       </div>
     </div>
