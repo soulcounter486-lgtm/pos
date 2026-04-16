@@ -785,7 +785,7 @@ export default function StaffPos() {
               <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <h1 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+              <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || '회사아이콘 pos 시스템'}</h1>
             </div>
           </header>
           <main className="flex-1 flex items-center justify-center">
@@ -816,7 +816,7 @@ export default function StaffPos() {
                 <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <h1 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+                <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || '회사아이콘 pos 시스템'}</h1>
               </div>
             </div>
           </header>
@@ -876,7 +876,7 @@ export default function StaffPos() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
               <div>
-                <h1 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+                <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || '회사아이콘 pos 시스템'}</h1>
                 <p className="text-xs text-gray-400">주문내역 {tableOrders.length}건</p>
               </div>
             </div>

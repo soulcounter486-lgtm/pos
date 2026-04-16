@@ -67,6 +67,7 @@ export default function AdminSettings() {
         updated_at: new Date().toISOString(),
       });
       if (error) throw error;
+      await fetchSettings();
       setMessage('저장되었습니다.');
     } catch (e) {
       console.error('설정 저장 오류:', e);
