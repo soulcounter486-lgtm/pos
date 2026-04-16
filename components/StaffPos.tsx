@@ -160,47 +160,53 @@ export default function StaffPos() {
     finally { setLoading(false); }
   }
 
-  // 기존 주문 아이템 수량 수정 (수량 증가=추가, 감소=취소 → 완료주문이면 주방에 알림)
+  // 기존 주문 아이템 수량 수정
+  // - 완료주문 + 증가(+): 기존 수량 유지, 추가분만 새 pending 주문으로 주방 전송
+  // - 완료주문 + 감소(-): 기존 수량 감소 + 주방에 취소 알림
+  // - 대기주문: 기존대로 수량만 업데이트
   async function updateOrderItemQuantity(itemId: string, orderId: string, delta: number) {
     const item = allOrderItems.find(i => i.id === itemId);
     if (!item) return;
     const order = allOrders.find(o => o.id === orderId);
-    const newQty = item.quantity + delta;
     const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
     const s = getSupabase();
     setLoading(true);
-    try {
-      // 1. 기존 아이템 수량 업데이트
-      if (newQty <= 0) {
-        await s.from('order_items').delete().eq('id', itemId);
-        const remaining = allOrderItems.filter(i => i.order_id === orderId && i.id !== itemId);
-        if (remaining.length === 0) await s.from('orders').delete().eq('id', orderId);
-      } else {
-        await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', itemId);
+
+    const sendToKitchen = async (qty: number, note: string) => {
+      const { data: ko } = await s.from('orders').insert({
+        table_id: order?.table_id,
+        total_amount: unitPrice * qty,
+        status: 'pending',
+      }).select().single();
+      if (!ko) return;
+      const ki = { order_id: ko.id, product_id: item.product_id, quantity: qty, price: unitPrice * qty, note };
+      let { error: kiErr } = await s.from('order_items').insert(ki);
+      if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
+        const { note: _n, ...kiNoNote } = ki;
+        await s.from('order_items').insert(kiNoNote);
       }
+    };
 
-      // 2. 조리완료 주문 변경 → 주방에 새 pending 주문으로 알림
-      if (order?.status === 'completed') {
-        const absDelta = newQty <= 0 ? item.quantity : Math.abs(delta);
-        const isCancel = delta < 0 || newQty <= 0;
-        const note = isCancel ? `[취소] ${absDelta}개 취소` : `[추가] +${absDelta}개 추가`;
-
-        const { data: kitchenOrder } = await s.from('orders').insert({
-          table_id: order.table_id,
-          total_amount: unitPrice * absDelta,
-          status: 'pending',
-        }).select().single();
-
-        if (kitchenOrder) {
-          const kitchenItem = { order_id: kitchenOrder.id, product_id: item.product_id, quantity: absDelta, price: unitPrice * absDelta, note };
-          let { error: kiErr } = await s.from('order_items').insert(kitchenItem);
-          if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
-            const { note: _n, ...kitchenItemNoNote } = kitchenItem;
-            await s.from('order_items').insert(kitchenItemNoNote);
-          }
+    try {
+      if (order?.status === 'completed' && delta > 0) {
+        // 완료 주문 수량 추가: 기존 수량 변경 없이 추가분만 주방 대기로 전송
+        await sendToKitchen(delta, `[추가] +${delta}개`);
+      } else {
+        // 그 외: 기존 수량 업데이트
+        const newQty = item.quantity + delta;
+        if (newQty <= 0) {
+          await s.from('order_items').delete().eq('id', itemId);
+          const remaining = allOrderItems.filter(i => i.order_id === orderId && i.id !== itemId);
+          if (remaining.length === 0) await s.from('orders').delete().eq('id', orderId);
+        } else {
+          await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', itemId);
+        }
+        // 완료 주문 수량 감소/삭제 → 주방에 취소 알림
+        if (order?.status === 'completed') {
+          const cancelQty = newQty <= 0 ? item.quantity : Math.abs(delta);
+          await sendToKitchen(cancelQty, `[취소] ${cancelQty}개`);
         }
       }
-
       await fetchOrders();
     } catch (e) { console.error(e); setMessage('수정 실패'); }
     finally { setLoading(false); }
