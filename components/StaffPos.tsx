@@ -135,8 +135,8 @@ export default function StaffPos() {
   function selectTable(tableId: string) {
     const tableIdNum = tableId.replace(/\D/g, '');
     setSelectedTable(tableIdNum);
-    setCurrentView('orders');
-    window.history.pushState({ ts: tableId, view: 'orders' }, '', `/staff?table=${tableId}&view=orders`);
+    setCurrentView('menu');
+    window.history.pushState({ ts: tableId, view: 'menu' }, '', `/staff?table=${tableId}&view=menu`);
   }
 
   function goBack() {
