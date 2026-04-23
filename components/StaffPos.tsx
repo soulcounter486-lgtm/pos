@@ -43,6 +43,30 @@ export default function StaffPos() {
     try { return JSON.parse(localStorage.getItem('pos_addon_order_ids') || '[]'); } catch { return []; }
   });
 
+  // 히스토리 기능
+  type HistoryEntry = {
+    id: string;
+    timestamp: string;
+    tableNumber: string;
+    items: { name: string; quantity: number; unitPrice: number; totalPrice: number }[];
+    totalAmount: number;
+    type: 'order' | 'edit';
+  };
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  function getOrderHistory(): HistoryEntry[] {
+    try { return JSON.parse(localStorage.getItem('pos_order_history') || '[]'); } catch { return []; }
+  }
+  function saveOrderHistory(entry: HistoryEntry) {
+    const history = getOrderHistory();
+    const updated = [entry, ...history].slice(0, 100);
+    localStorage.setItem('pos_order_history', JSON.stringify(updated));
+  }
+  function formatHistoryTime(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
   // 합석 기능
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [mergedTables, setMergedTables] = useState<string[]>([]); // numeric table IDs
@@ -331,6 +355,22 @@ export default function StaffPos() {
           localStorage.setItem('pos_addon_order_ids', JSON.stringify(newIds));
         }
       }
+      // 히스토리 저장 (추가 서비스)
+      const addonHistItems = Object.values(addonItemsMap).map(info => {
+        const p = products.find(pr => pr.id === info.productId);
+        const up = localPriceEdits[info.productId] !== undefined ? localPriceEdits[info.productId] : info.unitPrice;
+        return { name: p?.name || info.name, quantity: info.qty, unitPrice: up, totalPrice: up * info.qty };
+      });
+      if (addonHistItems.length > 0) {
+        saveOrderHistory({
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          tableNumber: String(selectedTable),
+          items: addonHistItems,
+          totalAmount: addonHistItems.reduce((s, i) => s + i.totalPrice, 0),
+          type: 'edit',
+        });
+      }
       setAddonItemsMap({});
       localStorage.removeItem('pos_price_edits');
       setLocalPriceEdits({});
@@ -383,12 +423,12 @@ export default function StaffPos() {
     const newQuantity = parseInt(quantityInput);
     if (isNaN(newQuantity) || newQuantity < 1) {
       // 0 이하 입력 시 해당 항목 삭제
-      setCart(prev => prev.filter(i => i.id !== productId));
+      setCart(cart.filter(i => i.id !== productId));
       setEditingQuantityId(null);
       setQuantityInput('');
       return;
     }
-    setCart(prev => prev.map(i => i.id === productId ? { ...i, quantity: newQuantity } : i));
+    setCart(cart.map(i => i.id === productId ? { ...i, quantity: newQuantity } : i));
     setEditingQuantityId(null);
     setQuantityInput('');
   }
@@ -434,6 +474,14 @@ export default function StaffPos() {
       }
       if (itemErr) throw itemErr;
 
+      saveOrderHistory({
+        id: od!.id + '_' + Date.now(),
+        timestamp: new Date().toISOString(),
+        tableNumber: String(selectedTable),
+        items: cart.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.price, totalPrice: i.price * i.quantity })),
+        totalAmount: total,
+        type: 'order',
+      });
       setCart([]);
       setCartMemos({});
       setMessage('주문이 완료되었습니다!');
@@ -624,13 +672,19 @@ export default function StaffPos() {
               <h1 className="text-xl font-bold text-[#111827]">직원 POS</h1>
               <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
             </div>
-            <button onClick={toggleMergeMode}
-              className={'px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
-                (isMergeMode
-                  ? 'bg-purple-500 text-white shadow-md'
-                  : 'bg-white border border-purple-200 text-purple-600 hover:bg-purple-50')}>
-              {isMergeMode ? '✕ 합석 취소' : '🪑 합석'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowHistory(true)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white border border-blue-200 text-blue-600 hover:bg-blue-50">
+                📋 히스토리
+              </button>
+              <button onClick={toggleMergeMode}
+                className={'px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
+                  (isMergeMode
+                    ? 'bg-purple-500 text-white shadow-md'
+                    : 'bg-white border border-purple-200 text-purple-600 hover:bg-purple-50')}>
+                {isMergeMode ? '✕ 합석 취소' : '🪑 합석'}
+              </button>
+            </div>
           </div>
           {/* 합석 모드 안내 배너 */}
           {isMergeMode && (
@@ -776,7 +830,7 @@ export default function StaffPos() {
             if (tableOrders.length === 0) return null;
             return (
               <div key={ts} className={'bg-white rounded-xl shadow-sm border overflow-hidden ' + (hasPending ? 'border-amber-100' : 'border-green-100')}>
-                <div className={'px-4 py-3 border-b flex items-center justify-between ' + (hasPending ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100')}>
+                <div className={'px-4 py-3 border-b border-gray-50 flex items-center justify-between ' + (hasPending ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100')}>
                   <div className="flex items-center gap-2">
                     <span className={'w-2 h-2 rounded-full ' + (hasPending ? 'bg-amber-400 animate-pulse' : 'bg-green-400')}></span>
                     <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-700' : 'text-green-700')}>Table {ts}</span>
@@ -878,6 +932,69 @@ export default function StaffPos() {
           </div>
         )}
 
+        {/* 주문 히스토리 사이드 패널 */}
+        {showHistory && (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowHistory(false)} />
+            <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col">
+              <div className="bg-[#1F2937] px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
+                <div>
+                  <h2 className="text-base font-bold">📋 주문 히스토리</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">최신순 · 최대 100건</p>
+                </div>
+                <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {getOrderHistory().length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
+                    <span className="text-4xl mb-3">📭</span>
+                    <p className="text-sm">주문 내역이 없습니다</p>
+                  </div>
+                ) : (
+                  getOrderHistory().map((entry) => (
+                    <div key={entry.id} className="border-b border-gray-100">
+                      <button
+                        onClick={() => setExpandedHistoryId(expandedHistoryId === entry.id ? null : entry.id)}
+                        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">Table {entry.tableNumber}</span>
+                            {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">추가 서비스</span>}
+                            <span className="text-[10px] text-gray-400">{formatHistoryTime(entry.timestamp)}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">{entry.items.map(i => i.name + ' ×' + i.quantity).join(', ')}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{expandedHistoryId === entry.id ? '▲' : '▼'}</p>
+                        </div>
+                      </button>
+                      {expandedHistoryId === entry.id && (
+                        <div className="px-4 pb-3 bg-gray-50">
+                          {entry.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
+                              <div>
+                                <p className="text-xs font-medium text-gray-700">{item.name}</p>
+                                <p className="text-[10px] text-gray-400">단가 {item.unitPrice.toLocaleString()} VND × {item.quantity}</p>
+                              </div>
+                              <p className="text-xs font-bold text-gray-700">{item.totalPrice.toLocaleString()} VND</p>
+                            </div>
+                          ))}
+                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
+                            <p className="text-xs font-bold text-gray-700">합계</p>
+                            <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
     );
@@ -898,7 +1015,14 @@ export default function StaffPos() {
             </div>
           </header>
           <main className="flex-1 flex items-center justify-center">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
+            <div className="text-center">
+              <span className="text-5xl mb-4 block">📭</span>
+              <p className="text-gray-400 mb-6">주문 내역이 없습니다</p>
+              <button onClick={() => navigateTo('menu')}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
+                메뉴에서 주문하기
+              </button>
+            </div>
           </main>
         </div>
       );
@@ -1156,10 +1280,11 @@ export default function StaffPos() {
                             onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
                             disabled={loading}
                             className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
-                          <button onClick={() => {
-                            if (isEditingPrice) { setEditingPriceId(null); }
-                            else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
-                          }}
+                          <button
+                            onClick={() => {
+                              if (isEditingPrice) { setEditingPriceId(null); }
+                              else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
+                            }}
                             className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold disabled:opacity-40 transition-colors ml-0.5">
                             ✏️
                           </button>
@@ -1303,7 +1428,7 @@ export default function StaffPos() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                       </button>
                       <div>
-                        <h3 className="text-base font-bold text-[#111827]">계좌이체 결제</h3>
+                        <h3 className="text-lg font-bold text-[#111827]">계좌이체 결제</h3>
                         <p className="text-sm text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
                       </div>
                     </div>
@@ -1463,10 +1588,28 @@ export default function StaffPos() {
                           autoFocus min="1" />
                       ) : (
                         <>
-                          <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">−</button>
-                          <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-8 h-6 bg-white hover:bg-blue-100 border border-blue-200 rounded-md flex items-center justify-center font-bold text-blue-700 text-xs transition-colors">{item.quantity}</button>
-                          <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">+</button>
-                          <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded-md flex items-center justify-center text-red-400 text-[10px] ml-0.5 transition-colors">✕</button>
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            disabled={loading || displayQty <= 0}
+                            className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">
+                            −
+                          </button>
+                          <button
+                            onClick={() => startEditingQuantity(item.id, item.quantity)}
+                            className="w-8 h-6 bg-white hover:bg-blue-100 border border-blue-200 rounded-md flex items-center justify-center font-bold text-blue-700 text-xs transition-colors">
+                            {item.quantity}
+                          </button>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            disabled={loading}
+                            className="w-6 h-6 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">
+                            +
+                          </button>
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-6 h-6 bg-red-50 hover:bg-red-100 rounded-md flex items-center justify-center text-red-400 text-[10px] ml-0.5 transition-colors">
+                            ✕
+                          </button>
                         </>
                       )}
                     </div>
