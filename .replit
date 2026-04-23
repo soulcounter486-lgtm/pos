@@ -4,7 +4,7 @@ modules = ["nodejs-20", "web"]
   channel = "stable-25_05"
 
   [agent]
-expertMode = true
+  expertMode = true
 
   [userenv]
 
@@ -40,12 +40,7 @@ expertMode = true
   localPort = 5000
   externalPort = 80
 
-  [mcpServers]
-
   [mcpServers.filesystem-with-morph]
   command = "npx"
   args = ["-y", "@morphllm/morphmcp"]
-
-  [mcpServers.filesystem-with-morph.env]
-  MORPH_API_KEY = "$MORPHLLM_API_KEY"
   
