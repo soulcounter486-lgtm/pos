@@ -418,6 +418,7 @@ export default function StaffPos() {
     const tax = cart.reduce((t, item) => t + (item.price * item.quantity * (item.tax_rate || 0.1)), 0);
     return subtotal + tax;
   }, [cart]);
+  const cartSubtotal = useMemo(() => cart.reduce((a, i) => a + i.price * i.quantity, 0), [cart]);
 
   const categories = useMemo(() => ['all', ...new Set(products.map(p => p.category))], [products]);
   const filteredProducts = useMemo(() => {
@@ -1258,7 +1259,7 @@ export default function StaffPos() {
           <div className="lg:hidden bg-white border-b border-blue-100 px-3 py-2 shadow-sm">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-bold text-blue-700">선택 메뉴 {cart.reduce((s, i) => s + i.quantity, 0)}개</span>
-              <span className="text-xs font-bold text-blue-700">{cartTotal.toLocaleString()} VND</span>
+              <span className="text-xs font-bold text-blue-700">{cartSubtotal.toLocaleString()} VND</span>
             </div>
             <div className="space-y-1.5 max-h-44 overflow-y-auto">
               {cart.map(item => (
@@ -1333,7 +1334,7 @@ export default function StaffPos() {
         )}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-base font-bold text-[#111827]">{cartTotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
+            <p className="text-base font-bold text-[#111827]">{cartSubtotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
             <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개 선택</p>
           </div>
           <button onClick={submitOrder} disabled={loading || cart.length === 0}
@@ -1405,7 +1406,7 @@ export default function StaffPos() {
           <div className="px-5 py-4 bg-gray-50 border-t border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-lg font-bold text-[#111827]">{cartTotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
+                <p className="text-lg font-bold text-[#111827]">{cartSubtotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
                 <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
               </div>
               <button onClick={submitOrder} disabled={loading || cart.length === 0}
