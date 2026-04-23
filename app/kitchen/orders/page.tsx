@@ -109,10 +109,15 @@ export default function KitchenOrders() {
   // 실시간 구독 (한 번만 설정, ref 통해 최신 fetchOrders 호출)
   useEffect(() => {
     const supabase = getSupabase();
+    const debounceTimer = { current: null as ReturnType<typeof setTimeout> | null };
+    const debouncedFetch = () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => { fetchOrdersRef.current?.(true); }, 300);
+    };
     const ordersSubscription = supabase
       .channel('kitchen-orders-' + Date.now())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        fetchOrdersRef.current?.(true);
+        debouncedFetch();
         if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
           showNewOrderNotification(payload.new);
         } else if (payload.eventType === 'UPDATE' && payload.new.status === 'pending') {
@@ -123,10 +128,11 @@ export default function KitchenOrders() {
     const orderItemsSubscription = supabase
       .channel('kitchen-items-' + Date.now())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        fetchOrdersRef.current?.(true);
+        debouncedFetch();
       })
       .subscribe();
     return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
       supabase.removeChannel(ordersSubscription);
       supabase.removeChannel(orderItemsSubscription);
     };
