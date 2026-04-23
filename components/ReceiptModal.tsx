@@ -26,6 +26,7 @@ type Product = {
   name: string;
   price: number;
   image_url?: string;
+  tax_rate?: number;
 };
 
 type Settings = {
@@ -53,27 +54,30 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
   const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
   // 모든 주문 아이템 집계 (같은 메뉴는 수량 합산)
-  const itemMap = new Map<string, { name: string; quantity: number; unitPrice: number; subtotal: number }>();
+  const itemMap = new Map<string, { name: string; quantity: number; unitPrice: number; subtotal: number; taxRate: number }>();
   orders.forEach(order => {
     orderItems.filter(i => i.order_id === order.id).forEach(item => {
       const product = products.find(p => p.id === item.product_id);
       const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
       const name = product?.name || '상품';
+      const taxRate = product?.tax_rate ?? 0.1;
       const existing = itemMap.get(item.product_id);
       if (existing) {
         existing.quantity += item.quantity;
         existing.subtotal += item.quantity * unitPrice;
       } else {
-        itemMap.set(item.product_id, { name, quantity: item.quantity, unitPrice, subtotal: item.quantity * unitPrice });
+        itemMap.set(item.product_id, { name, quantity: item.quantity, unitPrice, subtotal: item.quantity * unitPrice, taxRate });
       }
     });
   });
   const lineItems = Array.from(itemMap.values());
-  const grandTotal = orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+  const supplyTotal = lineItems.reduce((s, i) => s + i.subtotal, 0);
+  const vatTotal = lineItems.reduce((s, i) => s + Math.round(i.subtotal * i.taxRate), 0);
+  const receiptTotal = supplyTotal + vatTotal;
 
   const hasBankInfo = settings.bank_name || settings.account_number;
   const qrValue = hasBankInfo
-    ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${grandTotal.toLocaleString()} VND`
+    ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${receiptTotal.toLocaleString()} VND`
     : '';
 
   return (
@@ -114,7 +118,7 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
           </div>
           {lineItems.map((item, idx) => (
             <div key={idx} className="flex items-center text-xs">
-              <span className="flex-1 text-[#374151] truncate pr-2">{item.name}</span>
+              <span className="flex-1 text-[#374151] truncate pr-2">{item.name} <span className="text-[9px] text-gray-400">{Math.round((item.taxRate)*100)}%</span></span>
               <span className="w-10 text-center text-gray-500">{item.quantity}</span>
               <span className="w-16 text-right text-gray-500">{item.unitPrice.toLocaleString()}</span>
               <span className="w-20 text-right font-medium text-[#1F2937]">{item.subtotal.toLocaleString()}</span>
@@ -133,16 +137,16 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
               <span className="text-xs text-gray-700">{orders.length}건</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">공급가액 (Net)</span>
-              <span className="text-xs text-gray-700">{Math.round(grandTotal / 1.1).toLocaleString()} VND</span>
+              <span className="text-xs text-gray-500">공급가액</span>
+              <span className="text-xs text-gray-700">{Math.round(supplyTotal).toLocaleString()} VND</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">부가세 (VAT 10%)</span>
-              <span className="text-xs text-gray-700">{Math.round(grandTotal / 1.1 * 0.1).toLocaleString()} VND</span>
+              <span className="text-xs text-gray-500">부가세</span>
+              <span className="text-xs text-gray-700">{Math.round(vatTotal).toLocaleString()} VND</span>
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-gray-100">
               <span className="text-sm font-bold text-[#1F2937]">합 계</span>
-              <span className="text-lg font-bold text-blue-600">{grandTotal.toLocaleString()} VND</span>
+              <span className="text-lg font-bold text-blue-600">{Math.round(receiptTotal).toLocaleString()} VND</span>
             </div>
           </div>
         </div>
@@ -171,7 +175,7 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
               </div>
             </div>
             <p className="text-[9px] text-gray-400 text-center mt-3">
-              QR코드를 스캔하여 {grandTotal.toLocaleString()} VND 이체
+              QR코드를 스캔하여 {receiptTotal.toLocaleString()} VND 이체
             </p>
           </div>
         )}
