@@ -722,7 +722,7 @@ export default function StaffPos() {
                   const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
                   const product = products.find(p => p.id === item.product_id);
                   const taxRate = product?.tax_rate ?? 0.1;
-                  return s + up * item.quantity * (1 + taxRate);
+                  return s + up * item.quantity;
                 }, 0);
               }, 0);
               const totalOrders = tableOrders.length;
@@ -1041,12 +1041,11 @@ export default function StaffPos() {
     const grandTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
     const calcSupply = (orders) => orders.reduce((s, order) => {
       return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
-        const up = localPriceEdits[item.product_id] !== undefined
+        const isCompleted = order.status === 'completed';
+        const up = (isCompleted && localPriceEdits[item.product_id] !== undefined)
           ? localPriceEdits[item.product_id]
           : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
-        const product = products.find(p => p.id === item.product_id);
-        const taxRate = product?.tax_rate ?? 0.1;
-        return sum + up * item.quantity * (1 + taxRate);
+        return sum + up * item.quantity;
       }, 0);
     }, 0);
     const grandSupplyTotal = calcSupply(tableOrders);
@@ -1128,7 +1127,7 @@ export default function StaffPos() {
         return (
           <div key={item.id} className={"flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4" + (itemDone ? ' bg-green-50' : '')}>
             <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+              {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
             </div>
             <div className="flex-1 min-w-0">
               <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
@@ -1248,7 +1247,7 @@ export default function StaffPos() {
                     <div key={mitem.virtualId} className="border-b border-gray-50 last:border-0">
                       <div className="flex items-start gap-3 py-2.5 px-4">
                         <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
@@ -1285,7 +1284,7 @@ export default function StaffPos() {
                               if (isEditingPrice) { setEditingPriceId(null); }
                               else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
                             }}
-                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold disabled:opacity-40 transition-colors ml-0.5">
+                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">
                             ✏️
                           </button>
                           <button
@@ -1349,7 +1348,7 @@ export default function StaffPos() {
                       const up = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price);
                       const product = products.find(p => p.id === i.product_id);
                       const taxRate = product?.tax_rate ?? 0.1;
-                      return s + up * i.quantity * (1 + taxRate);
+                      return s + up * i.quantity;
                     }, 0).toLocaleString()} VND
                   </span>
                 </div>
@@ -1360,7 +1359,7 @@ export default function StaffPos() {
                     return (
                       <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
                         <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
@@ -1411,7 +1410,7 @@ export default function StaffPos() {
                 : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
               const product = products.find(p => p.id === item.product_id);
               const taxRate = product?.tax_rate ?? 0.1;
-              return sum + up * item.quantity * (1 + taxRate);
+              return sum + up * item.quantity;
             }, 0);
           }, 0));
           const hasBankInfo = settings.bank_name || settings.account_number;
@@ -1571,7 +1570,7 @@ export default function StaffPos() {
                 <div key={item.id} className="border border-blue-100 rounded-xl bg-blue-50 px-2.5 py-1.5 space-y-1">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-blue-100">
-                      {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
+                      {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-[#374151] truncate">{item.name}</p>
@@ -1686,7 +1685,7 @@ export default function StaffPos() {
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {item.image_url
-                      ? <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={item.image_url} alt="" className="w-full h-full object-contain" />
                       : <span className="text-[8px] text-gray-300">-</span>}
                   </div>
                   <div className="flex-1 min-w-0">
