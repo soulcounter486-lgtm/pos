@@ -1100,7 +1100,7 @@ export default function StaffPos() {
     const tablePendingOrders = tableOrders.filter(o => o.status === 'pending');
     const tableCompletedOrders = tableOrders.filter(o => o.status === 'completed');
     const grandTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
-    const calcSupply = (orders) => orders.reduce((s, order) => {
+    const calcSupply = (orders: OrderData[]) => orders.reduce((s, order) => {
       return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
         const isCompleted = order.status === 'completed';
         const up = (isCompleted && localPriceEdits[item.product_id] !== undefined)
@@ -1187,7 +1187,7 @@ export default function StaffPos() {
 
     // deferred=true: 완료 주문 수량 편집 (주문하기 클릭 시 반영)
     // deferred=false: 대기 주문 수량 편집 (즉시 반영)
-    const renderOrderItems = (order, editable, deferred = false) => {
+    const renderOrderItems = (order: OrderData, editable: boolean, deferred = false) => {
       const items = allOrderItems.filter(i => i.order_id === order.id);
       return items.map(item => {
         const product = products.find(p => p.id === item.product_id);
