@@ -44,9 +44,10 @@ type Props = {
   products: Product[];
   tableNumber: string;
   settings: Settings;
+  localPriceEdits?: Record<string, number>;
 };
 
-export default function ReceiptModal({ isOpen, onClose, orders, orderItems, products, tableNumber, settings }: Props) {
+export default function ReceiptModal({ isOpen, onClose, orders, orderItems, products, tableNumber, settings, localPriceEdits = {} }: Props) {
   if (!isOpen) return null;
 
   const now = new Date();
@@ -58,7 +59,9 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
   orders.forEach(order => {
     orderItems.filter(i => i.order_id === order.id).forEach(item => {
       const product = products.find(p => p.id === item.product_id);
-      const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+      const unitPrice = (localPriceEdits[item.product_id] !== undefined)
+        ? localPriceEdits[item.product_id]
+        : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
       const name = product?.name || '상품';
       const taxRate = product?.tax_rate ?? 0.1;
       const isService = unitPrice === 0;

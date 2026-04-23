@@ -666,7 +666,9 @@ export default function StaffPos() {
               const total = tableOrders.reduce((sum, order) => {
                 return sum + allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
                   const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
-                  return s + up * item.quantity;
+                  const product = products.find(p => p.id === item.product_id);
+                  const taxRate = product?.tax_rate ?? 0.1;
+                  return s + up * item.quantity * (1 + taxRate);
                 }, 0);
               }, 0);
               const totalOrders = tableOrders.length;
@@ -918,7 +920,9 @@ export default function StaffPos() {
         const up = localPriceEdits[item.product_id] !== undefined
           ? localPriceEdits[item.product_id]
           : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
-        return sum + up * item.quantity;
+        const product = products.find(p => p.id === item.product_id);
+        const taxRate = product?.tax_rate ?? 0.1;
+        return sum + up * item.quantity * (1 + taxRate);
       }, 0);
     }, 0);
     const grandSupplyTotal = calcSupply(tableOrders);
@@ -1218,7 +1222,9 @@ export default function StaffPos() {
                   <span className="text-xs text-purple-500">
                     {items.reduce((s, i) => {
                       const up = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price);
-                      return s + up * i.quantity;
+                      const product = products.find(p => p.id === i.product_id);
+                      const taxRate = product?.tax_rate ?? 0.1;
+                      return s + up * i.quantity * (1 + taxRate);
                     }, 0).toLocaleString()} VND
                   </span>
                 </div>
@@ -1273,7 +1279,16 @@ export default function StaffPos() {
 
         {/* 결제 수단 모달 */}
         {showPaymentModal && (() => {
-          const payTotal = pendingOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+          const payTotal = Math.round(pendingOrders.reduce((s, order) => {
+            return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
+              const up = localPriceEdits[item.product_id] !== undefined
+                ? localPriceEdits[item.product_id]
+                : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
+              const product = products.find(p => p.id === item.product_id);
+              const taxRate = product?.tax_rate ?? 0.1;
+              return sum + up * item.quantity * (1 + taxRate);
+            }, 0);
+          }, 0));
           const hasBankInfo = settings.bank_name || settings.account_number;
           const qrValue = hasBankInfo
             ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${payTotal.toLocaleString()} VND`
@@ -1379,6 +1394,7 @@ export default function StaffPos() {
           products={products}
           tableNumber={selectedTable!}
           settings={settings}
+          localPriceEdits={localPriceEdits}
         />
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
