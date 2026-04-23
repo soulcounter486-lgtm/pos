@@ -1631,13 +1631,17 @@ export default function StaffPos() {
                     </div>
                     <div className="flex items-center gap-0.5 flex-shrink-0">
                       {editingQuantityId === item.id ? (
-                        <input type="number" value={quantityInput}
+                        <input
+                          type="number"
+                          value={quantityInput}
                           onChange={e => setQuantityInput(e.target.value)}
                           onFocus={e => e.target.select()}
                           onBlur={() => saveQuantity(item.id)}
-                          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') cancelEditing(); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } if (e.key === 'Escape') cancelEditing(); }}
                           className="w-14 h-6 text-center text-xs border-2 border-blue-400 rounded-lg focus:outline-none font-bold bg-white"
-                          autoFocus min="1" />
+                          autoFocus
+                          min="1"
+                        />
                       ) : (
                         <>
                           <button
