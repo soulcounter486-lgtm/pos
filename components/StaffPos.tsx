@@ -1383,7 +1383,7 @@ export default function StaffPos() {
               </div>
             );
           })}
-          {/* 추가 서비스 조리완료 (addon, price=0) — 기존 조리완료와 별도 표시 */}
+          {/* 추가 서비스 조리완료 */}
           {serviceCompletedOrders.length > 0 && serviceCompletedOrders.map(order => {
             const items = allOrderItems.filter(i => i.order_id === order.id);
             if (items.length === 0) return null;
