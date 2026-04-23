@@ -33,6 +33,13 @@ export default function StaffPos() {
   const [dataLoaded, setDataLoaded] = useState(false);
   // 완료 주문 수량 로컬 편집 (주문하기 클릭 전까지 DB 미반영)
   const [localQtyEdits, setLocalQtyEdits] = useState<Record<string, number>>({});
+  // 추가 서비스 기능
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [localPriceEdits, setLocalPriceEdits] = useState<Record<string, number>>({});
+  const [addonItemsMap, setAddonItemsMap] = useState<Record<string, { qty: number; unitPrice: number; productId: string; name: string }>>({});
+  const [addonOrderIds, setAddonOrderIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('pos_addon_order_ids') || '[]'); } catch { return []; }
+  });
 
   // 합석 기능
   const [isMergeMode, setIsMergeMode] = useState(false);
@@ -296,6 +303,28 @@ export default function StaffPos() {
           }
         }
       }
+      // 추가 서비스 아이템 처리
+      for (const [, info] of Object.entries(addonItemsMap)) {
+        const overriddenPrice = localPriceEdits[info.productId] ?? info.unitPrice;
+        const { data: ko } = await s.from('orders').insert({
+          table_id: tableUuid,
+          total_amount: overriddenPrice * info.qty,
+          status: 'pending',
+        }).select().single();
+        if (ko) {
+          await s.from('order_items').insert({
+            order_id: ko.id,
+            product_id: info.productId,
+            quantity: info.qty,
+            price: overriddenPrice * info.qty,
+          });
+          const newIds = [...addonOrderIds, ko.id];
+          setAddonOrderIds(newIds);
+          localStorage.setItem('pos_addon_order_ids', JSON.stringify(newIds));
+        }
+      }
+      setAddonItemsMap({});
+      setLocalPriceEdits({});
       setLocalQtyEdits({});
       await fetchOrders();
       setMessage('주문 수정이 완료되었습니다!');
@@ -878,12 +907,16 @@ export default function StaffPos() {
     const grandSupplyTotal = calcSupply(tableOrders);
     const pendingSupplyTotal = calcSupply(tablePendingOrders);
 
-    // 완료 주문 항목을 product_id 기준으로 합산 (주방 완료 후 병합 표시)
+    // addon 완료 주문 분리
+    const baseCompletedOrders = tableCompletedOrders.filter(o => !addonOrderIds.includes(o.id));
+    const addonCompletedOrders = tableCompletedOrders.filter(o => addonOrderIds.includes(o.id));
+
+    // 완료 주문 항목을 product_id 기준으로 합산 (addon 제외)
     const mergedCompletedItems = (() => {
       const map = new Map<string, {
         virtualId: string; productId: string; totalQty: number; unitPrice: number; notes: string[];
       }>();
-      tableCompletedOrders.forEach(order => {
+      baseCompletedOrders.forEach(order => {
         allOrderItems.filter(i => i.order_id === order.id).forEach(item => {
           const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
           const existing = map.get(item.product_id);
@@ -1051,47 +1084,133 @@ export default function StaffPos() {
                   const localDelta = localQtyEdits[mitem.virtualId] || 0;
                   const displayQty = mitem.totalQty + localDelta;
                   const supplyAmount = mitem.unitPrice * mitem.totalQty;
+                  const addonEntry = addonItemsMap[mitem.virtualId];
+                  const isEditingPrice = editingPriceId === mitem.virtualId;
+                  const editedPrice = localPriceEdits[mitem.productId] ?? mitem.unitPrice;
                   return (
-                    <div key={mitem.virtualId} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
-                      <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {product?.image_url
-                          ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                          : <span className="text-[8px] text-gray-300">-</span>}
+                    <div key={mitem.virtualId} className="border-b border-gray-50 last:border-0">
+                      <div className="flex items-start gap-3 py-2.5 px-4">
+                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {product?.image_url
+                            ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                            : <span className="text-[8px] text-gray-300">-</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                          <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+                          {mitem.notes.length > 0 && (
+                            <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
+                          )}
+                          {localDelta !== 0 && (
+                            <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
+                            </p>
+                          )}
+                          {addonEntry && (
+                            <p className="text-[10px] mt-0.5 font-bold text-purple-600">✨ 추가 {addonEntry.qty}개 · {(editedPrice * addonEntry.qty).toLocaleString()} VND</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                          <button
+                            onClick={() => {
+                              const curr = localQtyEdits[mitem.virtualId] || 0;
+                              setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: Math.max(-mitem.totalQty, curr - 1) }));
+                            }}
+                            disabled={loading || displayQty <= 0}
+                            className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                          <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
+                            {displayQty}
+                          </span>
+                          <button
+                            onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
+                            disabled={loading}
+                            className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                          <button
+                            onClick={() => setEditingPriceId(isEditingPrice ? null : mitem.virtualId)}
+                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-xs font-bold disabled:opacity-40 transition-colors ml-0.5">
+                            💰</button>
+                          <button
+                            onClick={() => {
+                              const qty = 1;
+                              setAddonItemsMap(prev => ({
+                                ...prev,
+                                [mitem.virtualId]: {
+                                  qty: (prev[mitem.virtualId]?.qty || 0) + qty,
+                                  unitPrice: mitem.unitPrice,
+                                  productId: mitem.productId,
+                                  name: product?.name || '상품',
+                                },
+                              }));
+                            }}
+                            className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">
+                            추가</button>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                        <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
-                        {mitem.notes.length > 0 && (
-                          <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
-                        )}
-                        {localDelta !== 0 && (
-                          <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                        <button
-                          onClick={() => {
-                            const curr = localQtyEdits[mitem.virtualId] || 0;
-                            setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: Math.max(-mitem.totalQty, curr - 1) }));
-                          }}
-                          disabled={loading || displayQty <= 0}
-                          className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
-                        <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
-                          {displayQty}
-                        </span>
-                        <button
-                          onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
-                          disabled={loading}
-                          className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
-                      </div>
+                      {isEditingPrice && (
+                        <div className="px-4 pb-2.5 flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 shrink-0">추가 단가 수정:</span>
+                          <input
+                            type="number"
+                            value={localPriceEdits[mitem.productId] ?? mitem.unitPrice}
+                            onChange={e => setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: Number(e.target.value) }))}
+                            className="flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                            placeholder="단가 입력"
+                          />
+                          <span className="text-[10px] text-gray-400 shrink-0">VND</span>
+                          <button onClick={() => setEditingPriceId(null)}
+                            className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* 추가 서비스 조리완료 (addon) — 기존 조리완료와 별도 표시 */}
+          {addonCompletedOrders.length > 0 && addonCompletedOrders.map(order => {
+            const items = allOrderItems.filter(i => i.order_id === order.id);
+            if (items.length === 0) return null;
+            const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            return (
+              <div key={order.id} className="bg-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+                <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                    <span className="text-sm font-bold text-purple-700">추가 서비스</span>
+                    <span className="text-xs text-purple-400">{orderTime}</span>
+                  </div>
+                  <span className="text-xs text-purple-500">
+                    {items.reduce((s, i) => {
+                      const up = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price);
+                      return s + up * i.quantity;
+                    }, 0).toLocaleString()} VND
+                  </span>
+                </div>
+                <div>
+                  {items.map(item => {
+                    const product = products.find(p => p.id === item.product_id);
+                    const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
+                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {product?.image_url
+                            ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                            : <span className="text-[8px] text-gray-300">-</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                          <p className="text-[10px] text-gray-400">{(unitPrice * item.quantity).toLocaleString()} VND</p>
+                        </div>
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </main>
 
         {/* 하단 고정 버튼 영역 */}
@@ -1105,7 +1224,7 @@ export default function StaffPos() {
             가영수증
           </button>
           <button onClick={submitOrderEdits}
-            disabled={Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 || loading}
+            disabled={(Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 && Object.keys(addonItemsMap).length === 0) || loading}
             className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors shrink-0">
             주문하기
           </button>
