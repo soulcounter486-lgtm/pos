@@ -132,6 +132,14 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
               <span className="text-xs text-gray-500">주문 건수</span>
               <span className="text-xs text-gray-700">{orders.length}건</span>
             </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">공급가액 (Net)</span>
+              <span className="text-xs text-gray-700">{Math.round(grandTotal / 1.1).toLocaleString()} VND</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">부가세 (VAT 10%)</span>
+              <span className="text-xs text-gray-700">{Math.round(grandTotal / 1.1 * 0.1).toLocaleString()} VND</span>
+            </div>
             <div className="flex justify-between items-center pt-1 border-t border-gray-100">
               <span className="text-sm font-bold text-[#1F2937]">합 계</span>
               <span className="text-lg font-bold text-blue-600">{grandTotal.toLocaleString()} VND</span>

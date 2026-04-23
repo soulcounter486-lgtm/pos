@@ -31,6 +31,9 @@ export default function StaffPos() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  // 완료 주문 수량 로컬 편집 (주문하기 클릭 전까지 DB 미반영)
+  const [localQtyEdits, setLocalQtyEdits] = useState<Record<string, number>>({});
+
   // 합석 기능
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [mergedTables, setMergedTables] = useState<string[]>([]); // numeric table IDs
@@ -141,6 +144,7 @@ export default function StaffPos() {
 
   function goBack() {
     setSelectedTable(null); setCurrentView('orders'); setPendingOrders([]); setShowPaymentModal(false);
+    setLocalQtyEdits({});
     window.history.replaceState({ main: true }, '', '/staff');
   }
 
@@ -208,6 +212,55 @@ export default function StaffPos() {
         }
       }
       await fetchOrders();
+    } catch (e) { console.error(e); setMessage('수정 실패'); }
+    finally { setLoading(false); }
+  }
+
+  // 주문내역 화면의 [주문하기] 버튼: 로컬 수량 편집을 DB/주방에 반영
+  async function submitOrderEdits() {
+    const edits = Object.entries(localQtyEdits).filter(([, d]) => d !== 0);
+    if (edits.length === 0) return;
+    setLoading(true);
+    const s = getSupabase();
+    try {
+      for (const [itemId, delta] of edits) {
+        const item = allOrderItems.find(i => i.id === itemId);
+        if (!item) continue;
+        const order = allOrders.find(o => o.id === item.order_id);
+        const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+
+        const kitchenInsert = async (qty: number, note: string) => {
+          const { data: ko } = await s.from('orders').insert({
+            table_id: order?.table_id,
+            total_amount: unitPrice * qty,
+            status: 'pending',
+          }).select().single();
+          if (!ko) return;
+          const ki = { order_id: ko.id, product_id: item.product_id, quantity: qty, price: unitPrice * qty, note };
+          let { error: kiErr } = await s.from('order_items').insert(ki);
+          if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
+            const { note: _n, ...kiNoNote } = ki;
+            await s.from('order_items').insert(kiNoNote);
+          }
+        };
+
+        if (delta > 0) {
+          await kitchenInsert(delta, `[추가] +${delta}개`);
+        } else {
+          const newQty = item.quantity + delta;
+          if (newQty <= 0) {
+            await s.from('order_items').delete().eq('id', itemId);
+            const remaining = allOrderItems.filter(i => i.order_id === item.order_id && i.id !== itemId);
+            if (remaining.length === 0) await s.from('orders').delete().eq('id', item.order_id);
+          } else {
+            await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', itemId);
+          }
+          await kitchenInsert(Math.abs(delta), `[취소] ${Math.abs(delta)}개`);
+        }
+      }
+      setLocalQtyEdits({});
+      await fetchOrders();
+      setMessage('주문 수정이 완료되었습니다!');
     } catch (e) { console.error(e); setMessage('수정 실패'); }
     finally { setLoading(false); }
   }
@@ -834,11 +887,16 @@ export default function StaffPos() {
       );
     }
 
-    const renderOrderItems = (order: OrderData, editable: boolean) => {
+    // deferred=true: 완료 주문 수량 편집 (주문하기 클릭 시 반영)
+    // deferred=false: 대기 주문 수량 편집 (즉시 반영)
+    const renderOrderItems = (order: OrderData, editable: boolean, deferred = false) => {
       const items = allOrderItems.filter(i => i.order_id === order.id);
       return items.map(item => {
         const product = products.find(p => p.id === item.product_id);
         const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+        const supplyAmount = Math.round((unitPrice * item.quantity) / 1.1);
+        const localDelta = localQtyEdits[item.id] || 0;
+        const displayQty = item.quantity + localDelta;
         return (
           <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
             <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -848,17 +906,42 @@ export default function StaffPos() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-              <p className="text-[10px] text-gray-400">{unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>
+              <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
+              {deferred && localDelta !== 0 && (
+                <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
+                </p>
+              )}
             </div>
             {editable ? (
-              <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                <button onClick={() => updateOrderItemQuantity(item.id, order.id, -1)} disabled={loading}
-                  className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
-                <span className="w-7 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
-                <button onClick={() => updateOrderItemQuantity(item.id, order.id, 1)} disabled={loading}
-                  className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
-              </div>
+              deferred ? (
+                <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  <button
+                    onClick={() => {
+                      const curr = localQtyEdits[item.id] || 0;
+                      const next = Math.max(-item.quantity, curr - 1);
+                      setLocalQtyEdits(prev => ({ ...prev, [item.id]: next }));
+                    }}
+                    disabled={loading || displayQty <= 0}
+                    className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                  <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
+                    {displayQty}
+                  </span>
+                  <button
+                    onClick={() => setLocalQtyEdits(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
+                    disabled={loading}
+                    className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  <button onClick={() => updateOrderItemQuantity(item.id, order.id, -1)} disabled={loading}
+                    className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                  <span className="w-7 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
+                  <button onClick={() => updateOrderItemQuantity(item.id, order.id, 1)} disabled={loading}
+                    className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                </div>
+              )
             ) : (
               <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
             )}
@@ -916,30 +999,33 @@ export default function StaffPos() {
                   <span className="text-sm font-bold text-green-700">조리 완료</span>
                   <span className="text-xs text-green-500">{tableCompletedOrders.length}건</span>
                 </div>
-                <span className="text-sm font-bold text-green-600">
-                  {tableCompletedOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0).toLocaleString()} VND
-                </span>
+                <span className="text-xs text-green-500">수량 변경 후 주문하기</span>
               </div>
               <div>
-                {tableCompletedOrders.flatMap(order => renderOrderItems(order, true))}
+                {tableCompletedOrders.flatMap(order => renderOrderItems(order, true, true))}
               </div>
             </div>
           )}
         </main>
 
         {/* 하단 고정 버튼 영역 */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-2 shadow-lg z-30">
-          <div className="flex-1 flex items-center justify-between px-2">
-            <span className="text-sm text-gray-600">총 금액</span>
-            <span className="text-lg font-bold text-blue-600">{grandTotal.toLocaleString()} VND</span>
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-3 py-3 flex gap-1.5 shadow-lg z-30">
+          <div className="flex items-center justify-between px-2 min-w-0 flex-1">
+            <span className="text-sm text-gray-600 shrink-0">공급가액</span>
+            <span className="text-base font-bold text-blue-600 ml-1">{Math.round(grandTotal / 1.1).toLocaleString()} VND</span>
           </div>
           <button onClick={() => issueReceipt()}
-            className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors">
+            className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors shrink-0">
             가영수증
+          </button>
+          <button onClick={submitOrderEdits}
+            disabled={Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 || loading}
+            className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors shrink-0">
+            주문하기
           </button>
           <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }}
             disabled={tableOrders.length === 0}
-            className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors">
+            className="px-3 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors shrink-0">
             결제
           </button>
         </div>
