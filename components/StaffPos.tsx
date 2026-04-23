@@ -782,19 +782,22 @@ export default function StaffPos() {
                     allOrderItems.filter(i => i.order_id === order.id).map(item => {
                       const product = products.find(p => p.id === item.product_id);
                       const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                      const itemDone = item.status === 'completed';
                       return (
-                        <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
+                        <div key={item.id} className={"flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4" + (itemDone ? ' bg-green-50' : '')}>
                           <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {product?.image_url
-                              ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                              : <span className="text-[8px] text-gray-300">-</span>}
+                            {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                            <p className="text-[10px] text-gray-400">{unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>
+                            <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>{product?.name || '상품'}</p>
+                            <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>
                             {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
                           </div>
-                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+                          {itemDone ? (
+                            <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg flex-shrink-0 mt-0.5">✅ 조리완료</span>
+                          ) : (
+                            <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+                          )}
                         </div>
                       );
                     })
@@ -981,24 +984,25 @@ export default function StaffPos() {
         const supplyAmount = unitPrice * item.quantity;
         const localDelta = localQtyEdits[item.id] || 0;
         const displayQty = item.quantity + localDelta;
+        const itemDone = item.status === 'completed';
         return (
-          <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
+          <div key={item.id} className={"flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4" + (itemDone ? ' bg-green-50' : '')}>
             <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {product?.image_url
-                ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                : <span className="text-[8px] text-gray-300">-</span>}
+              {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+              <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>{product?.name || '상품'}</p>
               <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
-              {deferred && localDelta !== 0 && (
-                <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
+              {!itemDone && deferred && localDelta !== 0 && (
+                <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : 'text-red-500')}>
+                  {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
                 </p>
               )}
             </div>
-            {editable ? (
+            {itemDone ? (
+              <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg flex-shrink-0 mt-0.5">✅ 조리완료</span>
+            ) : editable ? (
               deferred ? (
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
                   <button
@@ -1099,9 +1103,7 @@ export default function StaffPos() {
                     <div key={mitem.virtualId} className="border-b border-gray-50 last:border-0">
                       <div className="flex items-start gap-3 py-2.5 px-4">
                         <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {product?.image_url
-                            ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                            : <span className="text-[8px] text-gray-300">-</span>}
+                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
@@ -1111,7 +1113,7 @@ export default function StaffPos() {
                           )}
                           {localDelta !== 0 && (
                             <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
+                              {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
                             </p>
                           )}
                           {addonEntry && (
@@ -1210,9 +1212,7 @@ export default function StaffPos() {
                     return (
                       <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
                         <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {product?.image_url
-                            ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                            : <span className="text-[8px] text-gray-300">-</span>}
+                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
