@@ -625,7 +625,8 @@ export default function StaffPos() {
               const tableOrders = allOrders.filter(order => String(order.table_id) === String(table.id));
               const hasPendingOrders = tableOrders.some(o => o.status === 'pending');
               const hasCompletedOrders = tableOrders.some(o => o.status === 'completed') && !hasPendingOrders;
-              const total = tableOrders.reduce((sum, order) => sum + (order.total_amount !== undefined ? order.total_amount : order.total), 0);
+              const totalRaw = tableOrders.reduce((sum, order) => sum + (order.total_amount !== undefined ? order.total_amount : order.total), 0);
+              const total = Math.round(totalRaw / 1.1);
               const totalOrders = tableOrders.length;
               const pendingCount = tableOrders.filter(o => o.status === 'pending').length;
               const isMergeSelected = mergedTables.includes(ts);
@@ -667,7 +668,7 @@ export default function StaffPos() {
                       : hasCompletedOrders ? '조리 완료' : hasPendingOrders ? '주문 대기' : '사용 가능'}
                   </div>
                   {total > 0 && (
-                    <div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5">{total.toLocaleString()} VND</div>
+                    <div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5">공급가액 {total.toLocaleString()} VND</div>
                   )}
                   {totalOrders > 0 && (
                     <div className="mt-2 flex gap-2">
