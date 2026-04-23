@@ -67,3 +67,7 @@ Note: Replit's MCP UI does not support custom servers; Morph is used via direct 
 
 - App runs on port 5000 (required for Replit web preview)
 - Uses single `next.config.mjs` (duplicate `next.config.js` was removed)
+
+## 도구 사용 규칙 (필수)
+- **파일 읽기/탐색**: 반드시 WarpGrep(`scripts/morph-search.cjs`)만 사용. `read`/`grep`/`glob` 등 기본 도구 사용 금지.
+- **파일 수정**: `edit` 도구 사용 (사용자 영구 허용). morph-apply는 영구 금지.
