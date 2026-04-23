@@ -865,6 +865,14 @@ export default function StaffPos() {
     const tablePendingOrders = tableOrders.filter(o => o.status === 'pending');
     const tableCompletedOrders = tableOrders.filter(o => o.status === 'completed');
     const grandTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    const calcSupply = (orders: typeof tableOrders) => orders.reduce((s, order) => {
+      return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
+        const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+        return sum + up * item.quantity;
+      }, 0);
+    }, 0);
+    const grandSupplyTotal = calcSupply(tableOrders);
+    const pendingSupplyTotal = calcSupply(tablePendingOrders);
 
     // 완료 주문 항목을 product_id 기준으로 합산 (주방 완료 후 병합 표시)
     const mergedCompletedItems = (() => {
@@ -926,7 +934,7 @@ export default function StaffPos() {
       return items.map(item => {
         const product = products.find(p => p.id === item.product_id);
         const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
-        const supplyAmount = Math.round((unitPrice * item.quantity) / 1.1);
+        const supplyAmount = unitPrice * item.quantity;
         const localDelta = localQtyEdits[item.id] || 0;
         const displayQty = item.quantity + localDelta;
         return (
@@ -1013,7 +1021,7 @@ export default function StaffPos() {
                   <span className="text-xs text-amber-500">{tablePendingOrders.length}건</span>
                 </div>
                 <span className="text-sm font-bold text-amber-600">
-                  {tablePendingOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0).toLocaleString()} VND
+                  {Math.round(pendingSupplyTotal).toLocaleString()} VND
                 </span>
               </div>
               <div>
@@ -1038,7 +1046,7 @@ export default function StaffPos() {
                   const product = products.find(p => p.id === mitem.productId);
                   const localDelta = localQtyEdits[mitem.virtualId] || 0;
                   const displayQty = mitem.totalQty + localDelta;
-                  const supplyAmount = Math.round((mitem.unitPrice * mitem.totalQty) / 1.1);
+                  const supplyAmount = mitem.unitPrice * mitem.totalQty;
                   return (
                     <div key={mitem.virtualId} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
                       <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -1086,7 +1094,7 @@ export default function StaffPos() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-3 py-3 flex gap-1.5 shadow-lg z-30">
           <div className="flex items-center justify-between px-2 min-w-0 flex-1">
             <span className="text-sm text-gray-600 shrink-0">공급가액</span>
-            <span className="text-base font-bold text-blue-600 ml-1">{Math.round(grandTotal / 1.1).toLocaleString()} VND</span>
+            <span className="text-base font-bold text-blue-600 ml-1">{Math.round(grandSupplyTotal).toLocaleString()} VND</span>
           </div>
           <button onClick={() => issueReceipt()}
             className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors shrink-0">
