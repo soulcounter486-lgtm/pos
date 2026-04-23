@@ -14,6 +14,7 @@ type OrderItem = {
   product_name?: string;
   product_image_url?: string;
   category?: string;
+  status?: string;
 };
 
 type Order = {
@@ -72,6 +73,7 @@ export default function KitchenOrders() {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [notification, setNotification] = useState<{ show: boolean; tableId: string; orderId: string; type?: string } | null>(null);
   const fetchOrdersRef = useRef<(silent?: boolean) => Promise<void>>();
+  const audioEnabledRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -191,6 +193,7 @@ export default function KitchenOrders() {
               product_name: product?.name || 'Unknown',
               product_image_url: product?.image_url || null,
               category: product?.category || 'Unknown',
+              status: item.status || 'pending',
             };
           }),
         };
@@ -207,7 +210,7 @@ export default function KitchenOrders() {
   }
 
   function showNewOrderNotification(order: any) {
-    if (audioEnabled) playNotificationSound();
+    if (audioEnabledRef.current) playNotificationSound();
     setNotification({ show: true, tableId: order.table_id, orderId: order.id, type: 'new' });
     setTimeout(() => setNotification(null), 6000);
   }
@@ -226,6 +229,16 @@ export default function KitchenOrders() {
     } catch (error) {
       alert('주문 완료 처리 중 오류가 발생했습니다.');
     }
+  }
+
+  async function markItemComplete(itemId: string, orderId: string) {
+    const supabase = getSupabase();
+    await supabase.from('order_items').update({ status: 'completed' }).eq('id', itemId);
+    const { data: items } = await supabase.from('order_items').select('status').eq('order_id', orderId);
+    if (items && items.every((i: any) => i.status === 'completed')) {
+      await supabase.from('orders').update({ status: 'completed' }).eq('id', orderId);
+    }
+    fetchOrders();
   }
 
   const pendingCount = counts.pending;
@@ -278,6 +291,7 @@ export default function KitchenOrders() {
               onClick={() => {
                 const next = !audioEnabled;
                 setAudioEnabled(next);
+                audioEnabledRef.current = next;
                 if (next) playNotificationSound();
               }}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${audioEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
@@ -375,19 +389,16 @@ export default function KitchenOrders() {
                           </div>
                         )}
                       </div>
+                      {item.status !== 'completed' ? (
+                        <button onClick={() => markItemComplete(item.id, order.id)}
+                          className='flex-shrink-0 self-center bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold'>
+                          ✅ 완료
+                        </button>
+                      ) : (
+                        <span className='flex-shrink-0 self-center text-green-400 text-sm font-bold'>✅</span>
+                      )}
                     </div>
                   ))}
-                </div>
-
-                <div className="px-4 py-3 border-t border-gray-700">
-                  {order.status === 'pending' ? (
-                    <button onClick={() => markOrderComplete(order.id)}
-                      className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2">
-                      ✅ 완료 처리
-                    </button>
-                  ) : (
-                    <div className="text-center text-green-400 font-semibold py-2">✅ 조리 완료</div>
-                  )}
                 </div>
               </div>
             ))}
