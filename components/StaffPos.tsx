@@ -35,7 +35,9 @@ export default function StaffPos() {
   const [localQtyEdits, setLocalQtyEdits] = useState<Record<string, number>>({});
   // 추가 서비스 기능
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
-  const [localPriceEdits, setLocalPriceEdits] = useState<Record<string, number>>({});
+  const [localPriceEdits, setLocalPriceEdits] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('pos_price_edits') || '{}'); } catch { return {}; }
+  });
   const [addonItemsMap, setAddonItemsMap] = useState<Record<string, { qty: number; unitPrice: number; productId: string; name: string }>>({});
   const [addonOrderIds, setAddonOrderIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('pos_addon_order_ids') || '[]'); } catch { return []; }
@@ -67,6 +69,10 @@ export default function StaffPos() {
   }, [selectedTable]);
 
   useEffect(() => { loadAllData(); }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('pos_price_edits', JSON.stringify(localPriceEdits)); } catch {}
+  }, [localPriceEdits]);
 
   // 실시간 구독 - 주방에서 처리완료 시 직원 화면 자동 업데이트
   useEffect(() => {
@@ -205,7 +211,7 @@ export default function StaffPos() {
         // 완료 주문 수량 추가: 기존 수량 변경 없이 추가분만 주방 대기로 전송
         await sendToKitchen(delta, `[추가] +${delta}개`);
       } else {
-        // 그 외: 기존 수량 업데이트
+        // 그 완: 기존 수량 업데이트
         const newQty = item.quantity + delta;
         if (newQty <= 0) {
           await s.from('order_items').delete().eq('id', itemId);
@@ -326,6 +332,7 @@ export default function StaffPos() {
         }
       }
       setAddonItemsMap({});
+      localStorage.removeItem('pos_price_edits');
       setLocalPriceEdits({});
       setLocalQtyEdits({});
       await fetchOrders();
@@ -1122,7 +1129,7 @@ export default function StaffPos() {
                             <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
                           )}
                           {localDelta !== 0 && (
-                            <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
                               {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
                             </p>
                           )}
@@ -1149,7 +1156,7 @@ export default function StaffPos() {
                             if (isEditingPrice) { setEditingPriceId(null); }
                             else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
                           }}
-                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-xs font-bold disabled:opacity-40 transition-colors ml-0.5">
+                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold disabled:opacity-40 transition-colors ml-0.5">
                             ✏️
                           </button>
                           <button
