@@ -1635,6 +1635,7 @@ export default function StaffPos() {
           tableNumber={selectedTable!}
           settings={settings}
           localPriceEdits={localPriceEdits}
+          localItemPriceEdits={localItemPriceEdits}
         />
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
