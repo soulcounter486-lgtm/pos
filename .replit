@@ -40,7 +40,8 @@ modules = ["nodejs-20", "web"]
   localPort = 5000
   externalPort = 80
 
-  [mcpServers.filesystem-with-morph]
+  [[mcp_servers]]
+  name = "filesystem-with-morph"
   command = "npx"
   args = ["-y", "@morphllm/morphmcp"]
   
