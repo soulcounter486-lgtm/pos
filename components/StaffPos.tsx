@@ -95,8 +95,13 @@ export default function StaffPos() {
   useEffect(() => { loadAllData(); }, []);
 
   useEffect(() => {
-    try { localStorage.setItem('pos_price_edits', JSON.stringify(localPriceEdits)); } catch {}
+    localStorage.setItem('pos_price_edits', JSON.stringify(localPriceEdits));
   }, [localPriceEdits]);
+
+  useEffect(() => {
+    setLocalPriceEdits({});
+    localStorage.removeItem('pos_price_edits');
+  }, [selectedTable]);
 
   // 실시간 구독 - 주방에서 처리완료 시 직원 화면 자동 업데이트
   useEffect(() => {
