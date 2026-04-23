@@ -1590,7 +1590,7 @@ export default function StaffPos() {
                         <>
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
-                            disabled={loading || displayQty <= 0}
+                            disabled={loading || item.quantity <= 0}
                             className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-blue-100">
                             −
                           </button>
