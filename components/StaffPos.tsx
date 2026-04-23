@@ -627,8 +627,12 @@ export default function StaffPos() {
               const tableOrders = allOrders.filter(order => String(order.table_id) === String(table.id));
               const hasPendingOrders = tableOrders.some(o => o.status === 'pending');
               const hasCompletedOrders = tableOrders.some(o => o.status === 'completed') && !hasPendingOrders;
-              const totalRaw = tableOrders.reduce((sum, order) => sum + (order.total_amount !== undefined ? order.total_amount : order.total), 0);
-              const total = Math.round(totalRaw / 1.1);
+              const total = tableOrders.reduce((sum, order) => {
+                return sum + allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
+                  const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                  return s + up * item.quantity;
+                }, 0);
+              }, 0);
               const totalOrders = tableOrders.length;
               const pendingCount = tableOrders.filter(o => o.status === 'pending').length;
               const isMergeSelected = mergedTables.includes(ts);
