@@ -851,7 +851,7 @@ export default function StaffPos() {
               <div key={ts} className={'bg-white rounded-xl shadow-sm border overflow-hidden ' + (hasPending ? 'border-amber-100' : 'border-green-100')}>
                 <div className={'px-4 py-3 border-b border-gray-50 flex items-center justify-between ' + (hasPending ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100')}>
                   <div className="flex items-center gap-2">
-                    <span className={'w-2 h-2 rounded-full ' + (hasPending ? 'bg-amber-400 animate-pulse' : 'bg-green-400')}></span>
+                    <span className={'w-2 h-2 rounded-full ' + (hasPending ? 'bg-amber-400' : 'bg-green-400')}></span>
                     <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-700' : 'text-green-700')}>Table {ts}</span>
                     <span className={'text-xs ' + (hasPending ? 'text-amber-500' : 'text-green-500')}>{hasPending ? '주방 대기 중' : '조리 완료'}</span>
                   </div>
@@ -1064,6 +1064,8 @@ export default function StaffPos() {
         const up = (isCompleted && localPriceEdits[item.product_id] !== undefined)
           ? localPriceEdits[item.product_id]
           : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
+        const product = products.find(p => p.id === item.product_id);
+        const taxRate = product?.tax_rate ?? 0.1;
         return sum + up * item.quantity;
       }, 0);
     }, 0);
@@ -1223,8 +1225,8 @@ export default function StaffPos() {
               </div>
             )}
           </div>
-        );
-      });
+        </div>
+      );
     };
 
     return (
@@ -1310,28 +1312,11 @@ export default function StaffPos() {
                           )}
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty}개</span>
-                          <button
-                            onClick={() => {
-                              const vid = mitem.virtualId;
-                              const curr = localQtyEdits[vid] || 0;
-                              const next = Math.max(-mitem.totalQty, curr - 1);
-                              setLocalQtyEdits(prev => ({ ...prev, [vid]: next }));
-                            }}
-                            disabled={loading || displayQty <= 0}
-                            className="w-7 h-7 bg-white hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
-                          <span className="w-7 text-center text-xs font-bold text-[#111827]">
-                            {displayQty}
-                          </span>
-                          <button
-                            onClick={() => {
-                              const vid = mitem.virtualId;
-                              const curr = localQtyEdits[vid] || 0;
-                              const next = curr + 1;
-                              setLocalQtyEdits(prev => ({ ...prev, [vid]: next }));
-                            }}
-                            disabled={loading}
-                            className="w-7 h-7 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                          <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: Math.max(-mitem.totalQty, (prev['merged-' + mitem.productId] || 0) - 1) })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">−</button>
+                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}개</span>
+                          <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: (prev['merged-' + mitem.productId] || 0) + 1 })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-green-100 hover:text-green-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">+</button>
+                          <button onClick={() => { const vid = mitem.virtualId; if (editingPriceId === vid) { setEditingPriceId(null); } else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">✏️</button>
+                          <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || '상품' } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">추가</button>
                         </div>
                       </div>
                       {isEditingPrice && (
