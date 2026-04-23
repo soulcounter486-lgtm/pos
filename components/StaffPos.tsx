@@ -1370,20 +1370,22 @@ export default function StaffPos() {
                     const product = products.find(p => p.id === item.product_id);
                     const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
                     return (
-                      <div key={item.id} className='flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4'>
-                        <div className='w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden'>
-                          {product?.image_url ? <img src={product.image_url} alt='' className='w-full h-full object-contain' /> : <span className='text-[8px] text-gray-300'>-</span>}
+                      <div key={item.id} className='border-b border-gray-50 last:border-0'>
+                        <div className='flex items-center gap-2 py-2.5 px-4'>
+                          <div className='w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden'>
+                            {product?.image_url ? <img src={product.image_url} alt='' className='w-full h-full object-contain' /> : <span className='text-[8px] text-gray-300'>-</span>}
+                          </div>
+                          <div className='flex-1 min-w-0'>
+                            <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || '상품'}</p>
+                            <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
+                          </div>
+                          <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
+                          <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0'>✏️</button>
                         </div>
-                        <div className='flex-1 min-w-0'>
-                          <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || '상품'}</p>
-                          <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
-                        </div>
-                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
-                        <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors'>✏️</button>
                         {editingPriceId === item.id && (
                           <div className='flex items-center gap-1 px-4 pb-2'>
-                            <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 px-2 py-1 border border-yellow-300 rounded text-xs' />
-                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold'>확인</button>
+                            <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 min-w-0 px-2 py-1 border border-yellow-300 rounded text-xs' />
+                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0'>확인</button>
                           </div>
                         )}
                       </div>
@@ -1420,20 +1422,22 @@ export default function StaffPos() {
                     const product = products.find(p => p.id === item.product_id);
                     const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
                     return (
-                      <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
-                        <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
+                      <div key={item.id} className="border-b border-gray-50 last:border-0">
+                        <div className="flex items-center gap-2 py-2.5 px-4">
+                          <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                            <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND</p>
+                          </div>
+                          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                          <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0">✏️</button>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                          <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND</p>
-                        </div>
-                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
-                        <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors'>✏️</button>
                         {editingPriceId === item.id && (
-                          <div className='flex items-center gap-1 px-4 pb-2'>
-                            <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 px-2 py-1 border border-yellow-300 rounded text-xs' />
-                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold'>확인</button>
+                          <div className="flex items-center gap-1 px-4 pb-2">
+                            <input type="number" value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className="flex-1 min-w-0 px-2 py-1 border border-yellow-300 rounded text-xs" />
+                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0">확인</button>
                           </div>
                         )}
                       </div>
