@@ -1168,7 +1168,7 @@ export default function StaffPos() {
                 : <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>}
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
               {!itemDone && deferred && localDelta !== 0 && (
-                <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : 'text-red-500')}>
+                <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]')}>
                   {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
                 </p>
               )}
