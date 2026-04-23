@@ -376,6 +376,20 @@ export default function StaffPos() {
           type: 'edit',
         });
       }
+      // 추가 주문 완료 항목 중 가격을 0으로 수정한 경우 DB 업데이트 (서비스 전환)
+      const addonNormalCandidates = allOrders.filter(o => addonOrderIds.includes(o.id) && o.status === 'completed');
+      for (const order of addonNormalCandidates) {
+        const items = allOrderItems.filter(i => i.order_id === order.id);
+        const allEditedToZero = items.length > 0 && items.every(i =>
+          localPriceEdits[i.product_id] !== undefined && localPriceEdits[i.product_id] === 0
+        );
+        if (allEditedToZero) {
+          for (const item of items) {
+            await s.from('order_items').update({ price: 0 }).eq('id', item.id);
+          }
+          await s.from('orders').update({ total_amount: 0 }).eq('id', order.id);
+        }
+      }
       setAddonItemsMap({});
       localStorage.removeItem('pos_price_edits');
       setLocalPriceEdits({});
@@ -1066,7 +1080,10 @@ export default function StaffPos() {
     const addonCompletedOrders = tableCompletedOrders.filter(o => addonOrderIds.includes(o.id));
     const serviceCompletedOrders = addonCompletedOrders.filter(o => {
       const items = allOrderItems.filter(i => i.order_id === o.id);
-      return items.length > 0 && items.every(i => i.price === 0);
+      return items.length > 0 && items.every(i => {
+        const effectivePrice = localPriceEdits[i.product_id] !== undefined ? localPriceEdits[i.product_id] : i.price;
+        return effectivePrice === 0;
+      });
     });
     const addonNormalCompletedOrders = addonCompletedOrders.filter(o => !serviceCompletedOrders.map(s => s.id).includes(o.id));
 
@@ -1166,26 +1183,44 @@ export default function StaffPos() {
                       setLocalQtyEdits(prev => ({ ...prev, [item.id]: next }));
                     }}
                     disabled={loading || displayQty <= 0}
-                    className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                    className="w-7 h-7 bg-white hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
                   <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
                     {displayQty}
                   </span>
                   <button
                     onClick={() => setLocalQtyEdits(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
                     disabled={loading}
-                    className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                    className="w-7 h-7 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
                   <button onClick={() => updateOrderItemQuantity(item.id, order.id, -1)} disabled={loading}
-                    className="w-7 h-7 bg-red-50 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                    className="w-7 h-7 bg-white hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
                   <span className="w-7 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
                   <button onClick={() => updateOrderItemQuantity(item.id, order.id, 1)} disabled={loading}
-                    className="w-7 h-7 bg-green-50 hover:bg-green-100 hover:text-green-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                    className="w-7 h-7 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
                 </div>
               )
             ) : (
               <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+            )}
+            {editingPriceId === order.id + '_n_' + item.product_id && (
+              <div className='px-4 pb-2.5 flex items-center gap-2'>
+                <span className='text-[10px] text-gray-500 shrink-0'>단가 수정:</span>
+                <input
+                  type='number'
+                  value={priceInputStr}
+                  onChange={e => setPriceInputStr(e.target.value)}
+                  className='flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400'
+                  placeholder='단가 입력'
+                />
+                <span className='text-[10px] text-gray-400 shrink-0'>VND</span>
+                <button onClick={() => {
+                  const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0);
+                  setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: val }));
+                  setEditingPriceId(null);
+                }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0'>확인</button>
+              </div>
             )}
           </div>
         );
@@ -1261,7 +1296,7 @@ export default function StaffPos() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                          <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+                          <p className="text-[10px] text-gray-400">공급가 {(localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : unitPrice).toLocaleString()} VND</p>
                           {mitem.notes.length > 0 && (
                             <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
                           )}
@@ -1274,44 +1309,15 @@ export default function StaffPos() {
                             <p className="text-[10px] mt-0.5 font-bold text-purple-600">✨ 추가 {addonEntry.qty}개 · {(editedPrice * addonEntry.qty).toLocaleString()} VND</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
                           <button
                             onClick={() => {
-                              const curr = localQtyEdits[mitem.virtualId] || 0;
-                              setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: Math.max(-mitem.totalQty, curr - 1) }));
+                              const vid = order.id + '_n_' + item.product_id;
+                              if (editingPriceId === vid) { setEditingPriceId(null); }
+                              else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : unitPrice)); }
                             }}
-                            disabled={loading || displayQty <= 0}
-                            className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
-                          <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
-                            {displayQty}
-                          </span>
-                          <button
-                            onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
-                            disabled={loading}
-                            className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
-                          <button
-                            onClick={() => {
-                              if (isEditingPrice) { setEditingPriceId(null); }
-                              else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
-                            }}
-                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => {
-                              const qty = 1;
-                              setAddonItemsMap(prev => ({
-                                ...prev,
-                                [mitem.virtualId]: {
-                                  qty: (prev[mitem.virtualId]?.qty || 0) + qty,
-                                  unitPrice: mitem.unitPrice,
-                                  productId: mitem.productId,
-                                  name: product?.name || '상품',
-                                },
-                              }));
-                            }}
-                            className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">
-                            추가</button>
+                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors">✏️</button>
                         </div>
                       </div>
                       {isEditingPrice && (
@@ -1327,7 +1333,7 @@ export default function StaffPos() {
                           <span className="text-[10px] text-gray-400 shrink-0">VND</span>
                           <button onClick={() => {
                             const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0);
-                            setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val }));
+                            setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: val }));
                             setEditingPriceId(null);
                           }}
                             className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
