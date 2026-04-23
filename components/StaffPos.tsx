@@ -93,6 +93,8 @@ export default function StaffPos() {
     }
   }, [message]);
 
+  const [priceInputStr, setPriceInputStr] = useState<string>('');
+
   async function fetchSettings() {
     try {
       const s = getSupabase();
@@ -411,7 +413,7 @@ export default function StaffPos() {
       let od: { id: string } | null = null;
       let oe: { code?: string; message?: string } | null = null;
       ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total_amount: total, status: 'pending' }).select().single() as InsertResult);
-      if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total, status: 'pending' }).select().single() as InsertResult);
+      if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total: total, status: 'pending' }).select().single() as InsertResult);
       if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, status: 'pending' }).select().single() as InsertResult);
       if (oe) throw new Error(oe.message || '주문 저장 오류');
       if (!od) throw new Error('주문 생성 실패');
@@ -844,7 +846,7 @@ export default function StaffPos() {
                 {[
                   { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
                   { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
-                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer' },
+                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer · QR' },
                 ].map(m => (
                   <button key={m.key} onClick={() => completeMergedPayment(m.key)}
                     className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
@@ -898,14 +900,21 @@ export default function StaffPos() {
     const tablePendingOrders = tableOrders.filter(o => o.status === 'pending');
     const tableCompletedOrders = tableOrders.filter(o => o.status === 'completed');
     const grandTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
-    const calcSupply = (orders: typeof tableOrders) => orders.reduce((s, order) => {
+    const calcSupply = (orders) => orders.reduce((s, order) => {
       return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
-        const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+        const up = localPriceEdits[item.product_id] !== undefined
+          ? localPriceEdits[item.product_id]
+          : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
         return sum + up * item.quantity;
       }, 0);
     }, 0);
     const grandSupplyTotal = calcSupply(tableOrders);
     const pendingSupplyTotal = calcSupply(tablePendingOrders);
+    const addonPreviewTotal = Object.entries(addonItemsMap).reduce((s, [, info]) => {
+      const price = localPriceEdits[info.productId] !== undefined ? localPriceEdits[info.productId] : info.unitPrice;
+      return s + price * info.qty;
+    }, 0);
+    const displaySupplyTotal = grandSupplyTotal + addonPreviewTotal;
 
     // addon 완료 주문 분리
     const baseCompletedOrders = tableCompletedOrders.filter(o => !addonOrderIds.includes(o.id));
@@ -966,7 +975,7 @@ export default function StaffPos() {
 
     // deferred=true: 완료 주문 수량 편집 (주문하기 클릭 시 반영)
     // deferred=false: 대기 주문 수량 편집 (즉시 반영)
-    const renderOrderItems = (order: OrderData, editable: boolean, deferred = false) => {
+    const renderOrderItems = (order, editable, deferred = false) => {
       const items = allOrderItems.filter(i => i.order_id === order.id);
       return items.map(item => {
         const product = products.find(p => p.id === item.product_id);
@@ -1083,7 +1092,8 @@ export default function StaffPos() {
                   const product = products.find(p => p.id === mitem.productId);
                   const localDelta = localQtyEdits[mitem.virtualId] || 0;
                   const displayQty = mitem.totalQty + localDelta;
-                  const supplyAmount = mitem.unitPrice * mitem.totalQty;
+                  const effectivePrice = localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice;
+                  const supplyAmount = effectivePrice * mitem.totalQty;
                   const addonEntry = addonItemsMap[mitem.virtualId];
                   const isEditingPrice = editingPriceId === mitem.virtualId;
                   const editedPrice = localPriceEdits[mitem.productId] ?? mitem.unitPrice;
@@ -1125,10 +1135,13 @@ export default function StaffPos() {
                             onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
                             disabled={loading}
                             className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
-                          <button
-                            onClick={() => setEditingPriceId(isEditingPrice ? null : mitem.virtualId)}
+                          <button onClick={() => {
+                            if (isEditingPrice) { setEditingPriceId(null); }
+                            else { setEditingPriceId(mitem.virtualId); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); }
+                          }}
                             className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-xs font-bold disabled:opacity-40 transition-colors ml-0.5">
-                            💰</button>
+                            ✏️
+                          </button>
                           <button
                             onClick={() => {
                               const qty = 1;
@@ -1151,13 +1164,17 @@ export default function StaffPos() {
                           <span className="text-[10px] text-gray-500 shrink-0">추가 단가 수정:</span>
                           <input
                             type="number"
-                            value={localPriceEdits[mitem.productId] ?? mitem.unitPrice}
-                            onChange={e => setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: Number(e.target.value) }))}
+                            value={priceInputStr}
+                            onChange={e => setPriceInputStr(e.target.value)}
                             className="flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400"
                             placeholder="단가 입력"
                           />
                           <span className="text-[10px] text-gray-400 shrink-0">VND</span>
-                          <button onClick={() => setEditingPriceId(null)}
+                          <button onClick={() => {
+                            const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0);
+                            setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val }));
+                            setEditingPriceId(null);
+                          }}
                             className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
                         </div>
                       )}
@@ -1217,7 +1234,7 @@ export default function StaffPos() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-3 py-3 flex gap-1.5 shadow-lg z-30">
           <div className="flex items-center justify-between px-2 min-w-0 flex-1">
             <span className="text-sm text-gray-600 shrink-0">공급가액</span>
-            <span className="text-base font-bold text-blue-600 ml-1">{Math.round(grandSupplyTotal).toLocaleString()} VND</span>
+            <span className="text-base font-bold text-blue-600 ml-1">{Math.round(displaySupplyTotal).toLocaleString()} VND</span>
           </div>
           <button onClick={() => issueReceipt()}
             className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors shrink-0">
@@ -1257,7 +1274,7 @@ export default function StaffPos() {
                       </button>
                       <div>
                         <h3 className="text-base font-bold text-[#111827]">계좌이체 결제</h3>
-                        <p className="text-xs text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
+                        <p className="text-sm text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
                       </div>
                     </div>
                     <div className="p-5 space-y-4">
