@@ -789,8 +789,13 @@ export default function StaffPos() {
                             {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>{product?.name || '상품'}</p>
-                            <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>
+                            <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
+                              {product?.name || '상품'}
+                              {unitPrice === 0 && <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-1 py-0.5 rounded">서비스</span>}
+                            </p>
+                            {unitPrice === 0
+                              ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
+                              : <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>}
                             {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
                           </div>
                           {itemDone ? (
@@ -991,8 +996,13 @@ export default function StaffPos() {
               {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-[8px] text-gray-300">-</span>}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>{product?.name || '상품'}</p>
-              <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+              <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
+                {product?.name || '상품'}
+                {supplyAmount === 0 && <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-1 py-0.5 rounded">서비스</span>}
+              </p>
+              {supplyAmount === 0
+                ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
+                : <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>}
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
               {!itemDone && deferred && localDelta !== 0 && (
                 <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : 'text-red-500')}>

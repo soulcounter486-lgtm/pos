@@ -54,19 +54,21 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
   const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
   // 모든 주문 아이템 집계 (같은 메뉴는 수량 합산)
-  const itemMap = new Map<string, { name: string; quantity: number; unitPrice: number; subtotal: number; taxRate: number }>();
+  const itemMap = new Map<string, { name: string; quantity: number; unitPrice: number; subtotal: number; taxRate: number; isService: boolean }>();
   orders.forEach(order => {
     orderItems.filter(i => i.order_id === order.id).forEach(item => {
       const product = products.find(p => p.id === item.product_id);
       const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
       const name = product?.name || '상품';
       const taxRate = product?.tax_rate ?? 0.1;
-      const existing = itemMap.get(item.product_id);
+      const isService = unitPrice === 0;
+      const mapKey = item.product_id + (isService ? '_svc' : '');
+      const existing = itemMap.get(mapKey);
       if (existing) {
         existing.quantity += item.quantity;
         existing.subtotal += item.quantity * unitPrice;
       } else {
-        itemMap.set(item.product_id, { name, quantity: item.quantity, unitPrice, subtotal: item.quantity * unitPrice, taxRate });
+        itemMap.set(mapKey, { name, quantity: item.quantity, unitPrice, subtotal: item.quantity * unitPrice, taxRate, isService });
       }
     });
   });
@@ -117,11 +119,16 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
             <span className="w-20 text-right">금액</span>
           </div>
           {lineItems.map((item, idx) => (
-            <div key={idx} className="flex items-center text-xs">
-              <span className="flex-1 text-[#374151] truncate pr-2">{item.name} <span className="text-[9px] text-gray-400">{Math.round((item.taxRate)*100)}%</span></span>
+            <div key={idx} className={`flex items-center text-xs py-0.5 rounded ${item.isService ? 'bg-pink-50' : ''}`}>
+              <span className="flex-1 text-[#374151] truncate pr-2">
+                {item.name}
+                {item.isService
+                  ? <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-100 border border-pink-200 px-1 py-0.5 rounded">서비스</span>
+                  : <span className="text-[9px] text-gray-400"> {Math.round((item.taxRate)*100)}%</span>}
+              </span>
               <span className="w-10 text-center text-gray-500">{item.quantity}</span>
-              <span className="w-16 text-right text-gray-500">{item.unitPrice.toLocaleString()}</span>
-              <span className="w-20 text-right font-medium text-[#1F2937]">{item.subtotal.toLocaleString()}</span>
+              <span className={`w-16 text-right ${item.isService ? 'text-pink-500 font-medium' : 'text-gray-500'}`}>{item.isService ? '서비스' : item.unitPrice.toLocaleString()}</span>
+              <span className={`w-20 text-right font-medium ${item.isService ? 'text-pink-500' : 'text-[#1F2937]'}`}>{item.isService ? '0' : item.subtotal.toLocaleString()}</span>
             </div>
           ))}
           {lineItems.length === 0 && (
