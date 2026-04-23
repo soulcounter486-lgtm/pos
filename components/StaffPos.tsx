@@ -264,7 +264,7 @@ export default function StaffPos() {
   // key 형식: "merged-{productId}" (완료 주문 합산 항목) or itemId (대기 주문 개별 항목)
   async function submitOrderEdits() {
     const edits = Object.entries(localQtyEdits).filter(([, d]) => d !== 0);
-    if (edits.length === 0) return;
+    if (edits.length === 0 && Object.keys(addonItemsMap).length === 0) return;
     setLoading(true);
     const s = getSupabase();
     const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
