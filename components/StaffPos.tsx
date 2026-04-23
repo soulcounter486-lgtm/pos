@@ -217,45 +217,83 @@ export default function StaffPos() {
   }
 
   // 주문내역 화면의 [주문하기] 버튼: 로컬 수량 편집을 DB/주방에 반영
+  // key 형식: "merged-{productId}" (완료 주문 합산 항목) or itemId (대기 주문 개별 항목)
   async function submitOrderEdits() {
     const edits = Object.entries(localQtyEdits).filter(([, d]) => d !== 0);
     if (edits.length === 0) return;
     setLoading(true);
     const s = getSupabase();
+    const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
+
+    const kitchenInsert = async (tblId: string, productId: string, unitPrice: number, qty: number, note: string) => {
+      const { data: ko } = await s.from('orders').insert({
+        table_id: tblId,
+        total_amount: unitPrice * qty,
+        status: 'pending',
+      }).select().single();
+      if (!ko) return;
+      const ki = { order_id: ko.id, product_id: productId, quantity: qty, price: unitPrice * qty, note };
+      let { error: kiErr } = await s.from('order_items').insert(ki);
+      if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
+        const { note: _n, ...kiNoNote } = ki;
+        await s.from('order_items').insert(kiNoNote);
+      }
+    };
+
     try {
-      for (const [itemId, delta] of edits) {
-        const item = allOrderItems.find(i => i.id === itemId);
-        if (!item) continue;
-        const order = allOrders.find(o => o.id === item.order_id);
-        const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+      for (const [key, delta] of edits) {
+        if (delta === 0) continue;
 
-        const kitchenInsert = async (qty: number, note: string) => {
-          const { data: ko } = await s.from('orders').insert({
-            table_id: order?.table_id,
-            total_amount: unitPrice * qty,
-            status: 'pending',
-          }).select().single();
-          if (!ko) return;
-          const ki = { order_id: ko.id, product_id: item.product_id, quantity: qty, price: unitPrice * qty, note };
-          let { error: kiErr } = await s.from('order_items').insert(ki);
-          if (kiErr && (kiErr.code === '42703' || kiErr.message?.includes('note'))) {
-            const { note: _n, ...kiNoNote } = ki;
-            await s.from('order_items').insert(kiNoNote);
-          }
-        };
+        if (key.startsWith('merged-')) {
+          // 완료 주문 합산 항목: product_id 기준으로 처리
+          const productId = key.slice('merged-'.length);
+          if (!tableUuid) continue;
+          const completedOrderIds = allOrders
+            .filter(o => String(o.table_id) === String(tableUuid) && o.status === 'completed')
+            .map(o => o.id);
+          const relevantItems = allOrderItems.filter(i => completedOrderIds.includes(i.order_id) && i.product_id === productId);
+          if (relevantItems.length === 0) continue;
+          const unitPrice = relevantItems[0].unit_price || (relevantItems[0].quantity > 0 ? relevantItems[0].price / relevantItems[0].quantity : relevantItems[0].price);
 
-        if (delta > 0) {
-          await kitchenInsert(delta, `[추가] +${delta}개`);
-        } else {
-          const newQty = item.quantity + delta;
-          if (newQty <= 0) {
-            await s.from('order_items').delete().eq('id', itemId);
-            const remaining = allOrderItems.filter(i => i.order_id === item.order_id && i.id !== itemId);
-            if (remaining.length === 0) await s.from('orders').delete().eq('id', item.order_id);
+          if (delta > 0) {
+            await kitchenInsert(tableUuid, productId, unitPrice, delta, `[추가] +${delta}개`);
           } else {
-            await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', itemId);
+            let toReduce = Math.abs(delta);
+            for (const item of relevantItems) {
+              if (toReduce <= 0) break;
+              if (item.quantity <= toReduce) {
+                await s.from('order_items').delete().eq('id', item.id);
+                const siblings = allOrderItems.filter(i => i.order_id === item.order_id && i.id !== item.id);
+                if (siblings.length === 0) await s.from('orders').delete().eq('id', item.order_id);
+                toReduce -= item.quantity;
+              } else {
+                const newQty = item.quantity - toReduce;
+                await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', item.id);
+                toReduce = 0;
+              }
+            }
+            await kitchenInsert(tableUuid, productId, unitPrice, Math.abs(delta), `[취소] ${Math.abs(delta)}개`);
           }
-          await kitchenInsert(Math.abs(delta), `[취소] ${Math.abs(delta)}개`);
+        } else {
+          // 대기 주문 개별 항목 (item ID 기준)
+          const item = allOrderItems.find(i => i.id === key);
+          if (!item) continue;
+          const order = allOrders.find(o => o.id === item.order_id);
+          const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+
+          if (delta > 0) {
+            await kitchenInsert(String(order?.table_id || ''), item.product_id, unitPrice, delta, `[추가] +${delta}개`);
+          } else {
+            const newQty = item.quantity + delta;
+            if (newQty <= 0) {
+              await s.from('order_items').delete().eq('id', key);
+              const siblings = allOrderItems.filter(i => i.order_id === item.order_id && i.id !== key);
+              if (siblings.length === 0) await s.from('orders').delete().eq('id', item.order_id);
+            } else {
+              await s.from('order_items').update({ quantity: newQty, price: unitPrice * newQty }).eq('id', key);
+            }
+            await kitchenInsert(String(order?.table_id || ''), item.product_id, unitPrice, Math.abs(delta), `[취소] ${Math.abs(delta)}개`);
+          }
         }
       }
       setLocalQtyEdits({});
@@ -860,6 +898,32 @@ export default function StaffPos() {
     const tableCompletedOrders = tableOrders.filter(o => o.status === 'completed');
     const grandTotal = tableOrders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
 
+    // 완료 주문 항목을 product_id 기준으로 합산 (주방 완료 후 병합 표시)
+    const mergedCompletedItems = (() => {
+      const map = new Map<string, {
+        virtualId: string; productId: string; totalQty: number; unitPrice: number; notes: string[];
+      }>();
+      tableCompletedOrders.forEach(order => {
+        allOrderItems.filter(i => i.order_id === order.id).forEach(item => {
+          const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+          const existing = map.get(item.product_id);
+          if (existing) {
+            existing.totalQty += item.quantity;
+            if (item.note) existing.notes.push(item.note);
+          } else {
+            map.set(item.product_id, {
+              virtualId: `merged-${item.product_id}`,
+              productId: item.product_id,
+              totalQty: item.quantity,
+              unitPrice,
+              notes: item.note ? [item.note] : [],
+            });
+          }
+        });
+      });
+      return Array.from(map.values());
+    })();
+
     if (tableOrders.length === 0) {
       return (
         <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
@@ -990,19 +1054,61 @@ export default function StaffPos() {
             </div>
           )}
 
-          {/* 조리 완료 주문 */}
-          {tableCompletedOrders.length > 0 && (
+          {/* 조리 완료 주문 (product_id 기준 합산 표시) */}
+          {mergedCompletedItems.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden">
               <div className="px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-400 rounded-full"></span>
                   <span className="text-sm font-bold text-green-700">조리 완료</span>
-                  <span className="text-xs text-green-500">{tableCompletedOrders.length}건</span>
+                  <span className="text-xs text-green-500">{mergedCompletedItems.length}종</span>
                 </div>
                 <span className="text-xs text-green-500">수량 변경 후 주문하기</span>
               </div>
               <div>
-                {tableCompletedOrders.flatMap(order => renderOrderItems(order, true, true))}
+                {mergedCompletedItems.map(mitem => {
+                  const product = products.find(p => p.id === mitem.productId);
+                  const localDelta = localQtyEdits[mitem.virtualId] || 0;
+                  const displayQty = mitem.totalQty + localDelta;
+                  const supplyAmount = Math.round((mitem.unitPrice * mitem.totalQty) / 1.1);
+                  return (
+                    <div key={mitem.virtualId} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4">
+                      <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {product?.image_url
+                          ? <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-[8px] text-gray-300">-</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                        <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+                        {mitem.notes.length > 0 && (
+                          <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
+                        )}
+                        {localDelta !== 0 && (
+                          <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {localDelta > 0 ? `▲ +${localDelta}개 추가 예정` : `▼ ${localDelta}개 취소 예정`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                        <button
+                          onClick={() => {
+                            const curr = localQtyEdits[mitem.virtualId] || 0;
+                            setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: Math.max(-mitem.totalQty, curr - 1) }));
+                          }}
+                          disabled={loading || displayQty <= 0}
+                          className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                        <span className={`w-7 text-center text-xs font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
+                          {displayQty}
+                        </span>
+                        <button
+                          onClick={() => setLocalQtyEdits(prev => ({ ...prev, [mitem.virtualId]: (prev[mitem.virtualId] || 0) + 1 }))}
+                          disabled={loading}
+                          className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
