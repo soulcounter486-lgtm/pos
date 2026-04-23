@@ -738,7 +738,10 @@ export default function StaffPos() {
               const hasCompletedOrders = tableOrders.some(o => o.status === 'completed') && !hasPendingOrders;
               const total = tableOrders.reduce((sum, order) => {
                 return sum + allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
-                  const up = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                  const isCompleted = order.status === 'completed';
+                  const up = (isCompleted && localPriceEdits[item.product_id] !== undefined)
+                    ? localPriceEdits[item.product_id]
+                    : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
                   const product = products.find(p => p.id === item.product_id);
                   const taxRate = product?.tax_rate ?? 0.1;
                   return s + up * item.quantity;
@@ -1376,6 +1379,13 @@ export default function StaffPos() {
                           <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
                         </div>
                         <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
+                        <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors'>✏️</button>
+                        {editingPriceId === item.id && (
+                          <div className='flex items-center gap-1 px-4 pb-2'>
+                            <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 px-2 py-1 border border-yellow-300 rounded text-xs' />
+                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold'>확인</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1419,6 +1429,13 @@ export default function StaffPos() {
                           <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND</p>
                         </div>
                         <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                        <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors'>✏️</button>
+                        {editingPriceId === item.id && (
+                          <div className='flex items-center gap-1 px-4 pb-2'>
+                            <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 px-2 py-1 border border-yellow-300 rounded text-xs' />
+                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold'>확인</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1766,10 +1783,10 @@ export default function StaffPos() {
                       </div>
                     ) : (
                       <>
-                        <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">−</button>
-                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-9 h-7 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm transition-colors">{item.quantity}</button>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center font-bold text-gray-500 text-sm transition-colors">+</button>
-                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-xs ml-0.5 transition-colors">✕</button>
+                        <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-sm transition-colors border border-gray-100">−</button>
+                        <button onClick={() => startEditingQuantity(item.id, item.quantity)} className="w-9 h-7 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md flex items-center justify-center font-bold text-blue-700 text-sm transition-colors">{item.quantity}</button>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-md flex items-center justify-center font-bold text-gray-500 text-sm transition-colors border border-gray-100">+</button>
+                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-md flex items-center justify-center text-red-400 text-xs ml-0.5 transition-colors">✕</button>
                       </>
                     )}
                   </div>
