@@ -427,8 +427,6 @@ export default function StaffPos() {
       }
       if (itemErr) throw itemErr;
 
-      setAllOrders(prev => [{ id: od!.id, table_id: selectedTableId, total_amount: total, total, status: 'pending', created_at: new Date().toISOString() }, ...prev]);
-      setAllOrderItems(prev => [...prev, ...cart.map(i => ({ id: crypto.randomUUID(), order_id: od!.id, product_id: i.id, quantity: i.quantity, price: i.price * i.quantity, status: 'pending', note: cartMemos[i.id] || undefined }))]);
       setCart([]);
       setCartMemos({});
       setMessage('주문이 완료되었습니다!');
@@ -1022,10 +1020,10 @@ export default function StaffPos() {
               ) : (
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
                   <button onClick={() => updateOrderItemQuantity(item.id, order.id, -1)} disabled={loading}
-                    className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                    className="w-7 h-7 bg-red-50 hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
                   <span className="w-7 text-center text-xs font-bold text-[#111827]">{item.quantity}</span>
                   <button onClick={() => updateOrderItemQuantity(item.id, order.id, 1)} disabled={loading}
-                    className="w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
+                    className="w-7 h-7 bg-green-50 hover:bg-green-100 hover:text-green-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
                 </div>
               )
             ) : (
