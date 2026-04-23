@@ -1225,8 +1225,8 @@ export default function StaffPos() {
               </div>
             )}
           </div>
-        </div>
-      );
+        );
+      });
     };
 
     return (
