@@ -367,7 +367,6 @@ export default function KitchenOrders() {
                         <p className="text-gray-400 text-xs mb-1">📂 {item.category || '미분류'}</p>
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-blue-400 text-sm font-bold">× {item.quantity}개</p>
-                          <p className="text-white text-xs">({item.price.toLocaleString()} VND)</p>
                         </div>
                         {/* 메모 표시 */}
                         {item.note && (
