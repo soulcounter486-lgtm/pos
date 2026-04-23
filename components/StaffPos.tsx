@@ -38,6 +38,10 @@ export default function StaffPos() {
   const [localPriceEdits, setLocalPriceEdits] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem('pos_price_edits') || '{}'); } catch { return {}; }
   });
+  // 추가주문완료/추가서비스 아이템 가격 편집 (item.id 기준, product_id 기준 localPriceEdits와 분리)
+  const [localItemPriceEdits, setLocalItemPriceEdits] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('pos_item_price_edits') || '{}'); } catch { return {}; }
+  });
   const [addonItemsMap, setAddonItemsMap] = useState<Record<string, { qty: number; unitPrice: number; productId: string; name: string }>>({});
   const [addonOrderIds, setAddonOrderIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('pos_addon_order_ids') || '[]'); } catch { return []; }
@@ -99,8 +103,21 @@ export default function StaffPos() {
   }, [localPriceEdits]);
 
   useEffect(() => {
-    setLocalPriceEdits({});
-    localStorage.removeItem('pos_price_edits');
+    localStorage.setItem('pos_item_price_edits', JSON.stringify(localItemPriceEdits));
+  }, [localItemPriceEdits]);
+
+  const prevSelectedTableRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevSelectedTableRef.current;
+    // 마운트(prev=null) 또는 처음 테이블 선택 시 — 로컬편집 보존(새로고침 직후 유지)
+    // 실제로 다른 테이블로 전환될 때만 초기화
+    if (prev !== null && prev !== selectedTable) {
+      setLocalPriceEdits({});
+      setLocalItemPriceEdits({});
+      localStorage.removeItem('pos_price_edits');
+      localStorage.removeItem('pos_item_price_edits');
+    }
+    prevSelectedTableRef.current = selectedTable;
   }, [selectedTable]);
 
   // 실시간 구독 - 주방에서 처리완료 시 직원 화면 자동 업데이트
@@ -264,7 +281,7 @@ export default function StaffPos() {
   // key 형식: "merged-{productId}" (완료 주문 합산 항목) or itemId (대기 주문 개별 항목)
   async function submitOrderEdits() {
     const edits = Object.entries(localQtyEdits).filter(([, d]) => d !== 0);
-    if (edits.length === 0 && Object.keys(addonItemsMap).length === 0) return;
+    if (edits.length === 0 && Object.keys(addonItemsMap).length === 0 && Object.keys(localItemPriceEdits).length === 0) return;
     setLoading(true);
     const s = getSupabase();
     const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
@@ -376,7 +393,27 @@ export default function StaffPos() {
           type: 'edit',
         });
       }
-      // 추가 주문 완료 항목 중 가격을 0으로 수정한 경우 DB 업데이트 (서비스 전환)
+      // 추가 아이템 가격 편집(item.id 기준) DB 반영
+      const itemPriceEntries = Object.entries(localItemPriceEdits);
+      const affectedOrderIds = new Set<string>();
+      for (const [itemId, newUnitPrice] of itemPriceEntries) {
+        const item = allOrderItems.find(i => i.id === itemId);
+        if (!item) continue;
+        const newTotal = newUnitPrice * item.quantity;
+        await s.from('order_items').update({ price: newTotal }).eq('id', itemId);
+        if (item.order_id) affectedOrderIds.add(item.order_id);
+      }
+      // 영향 받은 주문의 total_amount 재계산
+      for (const orderId of affectedOrderIds) {
+        const items = allOrderItems.filter(i => i.order_id === orderId);
+        const newTotal = items.reduce((sum, i) => {
+          const overridden = localItemPriceEdits[i.id];
+          const up = overridden !== undefined ? overridden : (i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price));
+          return sum + up * i.quantity;
+        }, 0);
+        await s.from('orders').update({ total_amount: newTotal }).eq('id', orderId);
+      }
+      // 추가 주문 완료 항목 중 가격을 0으로 수정한 경우 DB 업데이트 (서비스 전환) - product_id 기준 (legacy)
       const addonNormalCandidates = allOrders.filter(o => addonOrderIds.includes(o.id) && o.status === 'completed');
       for (const order of addonNormalCandidates) {
         const items = allOrderItems.filter(i => i.order_id === order.id);
@@ -391,7 +428,9 @@ export default function StaffPos() {
         }
       }
       setAddonItemsMap({});
+      setLocalItemPriceEdits({});
       localStorage.removeItem('pos_price_edits');
+      localStorage.removeItem('pos_item_price_edits');
       setLocalPriceEdits({});
       setLocalQtyEdits({});
       await fetchOrders();
@@ -1085,9 +1124,10 @@ export default function StaffPos() {
     const addonCompletedOrders = tableCompletedOrders.filter(o => addonOrderIds.includes(o.id));
     const serviceCompletedOrders = addonCompletedOrders.filter(o => {
       const items = allOrderItems.filter(i => i.order_id === o.id);
+      // addon 항목은 item.id 기준 로컬편집 또는 DB에 저장된 가격(0)만으로 분류 — 조리완료(merged) 쪽 product_id 편집과 격리
       return items.length > 0 && items.every(i => {
-        const effectivePrice = localPriceEdits[i.product_id] !== undefined ? localPriceEdits[i.product_id] : i.price;
-        return effectivePrice === 0;
+        if (localItemPriceEdits[i.id] !== undefined) return localItemPriceEdits[i.id] === 0;
+        return i.price === 0;
       });
     });
     const addonNormalCompletedOrders = addonCompletedOrders.filter(o => !serviceCompletedOrders.map(s => s.id).includes(o.id));
@@ -1368,7 +1408,8 @@ export default function StaffPos() {
                 <div>
                   {items.map(item => {
                     const product = products.find(p => p.id === item.product_id);
-                    const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    const baseUnit = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    const unitPrice = localItemPriceEdits[item.id] !== undefined ? localItemPriceEdits[item.id] : baseUnit;
                     return (
                       <div key={item.id} className='border-b border-gray-50 last:border-0'>
                         <div className='flex items-center gap-2 py-2.5 px-4'>
@@ -1385,7 +1426,7 @@ export default function StaffPos() {
                         {editingPriceId === item.id && (
                           <div className='flex items-center gap-1 px-4 pb-2'>
                             <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 min-w-0 px-2 py-1 border border-yellow-300 rounded text-xs' />
-                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0'>확인</button>
+                            <button onClick={() => { setLocalItemPriceEdits(prev => ({ ...prev, [item.id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0'>확인</button>
                           </div>
                         )}
                       </div>
@@ -1420,7 +1461,8 @@ export default function StaffPos() {
                 <div>
                   {items.map(item => {
                     const product = products.find(p => p.id === item.product_id);
-                    const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    const baseUnit = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    const unitPrice = localItemPriceEdits[item.id] !== undefined ? localItemPriceEdits[item.id] : baseUnit;
                     return (
                       <div key={item.id} className="border-b border-gray-50 last:border-0">
                         <div className="flex items-center gap-2 py-2.5 px-4">
@@ -1437,7 +1479,7 @@ export default function StaffPos() {
                         {editingPriceId === item.id && (
                           <div className="flex items-center gap-1 px-4 pb-2">
                             <input type="number" value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className="flex-1 min-w-0 px-2 py-1 border border-yellow-300 rounded text-xs" />
-                            <button onClick={() => { setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0">확인</button>
+                            <button onClick={() => { setLocalItemPriceEdits(prev => ({ ...prev, [item.id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0">확인</button>
                           </div>
                         )}
                       </div>
@@ -1460,7 +1502,7 @@ export default function StaffPos() {
             가영수증
           </button>
           <button onClick={submitOrderEdits}
-            disabled={(Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 && Object.keys(addonItemsMap).length === 0) || loading}
+            disabled={(Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 && Object.keys(addonItemsMap).length === 0 && Object.keys(localItemPriceEdits).length === 0) || loading}
             className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors shrink-0">
             주문하기
           </button>
