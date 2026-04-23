@@ -34,29 +34,61 @@ interface WindowWithWebkit extends Window {
   webkitAudioContext?: typeof AudioContext;
 }
 
-// Web Audio API로 알림 소리 재생
-function playNotificationSound() {
+// 공유 AudioContext (브라우저 자동재생 정책: 사용자 제스처 후 unlock 필요)
+let sharedAudioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
   try {
+    if (typeof window === 'undefined') return null;
+    if (sharedAudioCtx) return sharedAudioCtx;
     const w = window as WindowWithWebkit;
     const AudioCtxClass = window.AudioContext || w.webkitAudioContext;
-    if (!AudioCtxClass) return;
-    const ctx = new AudioCtxClass();
+    if (!AudioCtxClass) return null;
+    sharedAudioCtx = new AudioCtxClass();
+    return sharedAudioCtx;
+  } catch { return null; }
+}
 
-    const beep = (freq: number, start: number, duration: number, vol: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      gain.gain.setValueAtTime(vol, ctx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + duration);
+// Web Audio API로 알림 소리 재생 — 시끄러운 주방용: 사이렌 패턴, 사각파, 큰 음량 1.5초
+function playNotificationSound() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+    const master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+
+    // 사각파 + 부저 톤(900Hz / 1300Hz 교차)을 빠르게 4회 반복 — 멀리서도 잘 들림
+    const tone = (freq: number, start: number, duration: number) => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc1.type = 'square';
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      osc2.frequency.setValueAtTime(freq * 1.5, ctx.currentTime + start); // 5도 화음 — 더 날카롭게
+      osc1.connect(g);
+      osc2.connect(g);
+      g.connect(master);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.8, ctx.currentTime + start + 0.01);
+      g.gain.setValueAtTime(0.8, ctx.currentTime + start + duration - 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+      osc1.start(ctx.currentTime + start);
+      osc2.start(ctx.currentTime + start);
+      osc1.stop(ctx.currentTime + start + duration);
+      osc2.stop(ctx.currentTime + start + duration);
     };
 
-    beep(880, 0, 0.15, 0.4);
-    beep(1100, 0.18, 0.15, 0.4);
-    beep(880, 0.36, 0.25, 0.4);
+    // 사이렌 패턴: 낮음-높음 4세트 (총 1.6초)
+    tone(900, 0.00, 0.18);
+    tone(1300, 0.20, 0.18);
+    tone(900, 0.42, 0.18);
+    tone(1300, 0.62, 0.18);
+    tone(900, 0.84, 0.20);
+    tone(1300, 1.06, 0.20);
+    tone(900, 1.30, 0.30);
   } catch (e) {
     console.log('Audio playback unavailable:', e);
   }
@@ -70,10 +102,39 @@ export default function KitchenOrders() {
   const [counts, setCounts] = useState({ pending: 0, completed: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('kitchen_audio_enabled') === '1'; } catch { return false; }
+  });
   const [notification, setNotification] = useState<{ show: boolean; tableId: string; orderId: string; type?: string } | null>(null);
   const fetchOrdersRef = useRef<(silent?: boolean) => Promise<void>>();
   const audioEnabledRef = useRef(false);
+
+  // 소리 ON 상태 영구화 + ref 동기화
+  useEffect(() => {
+    audioEnabledRef.current = audioEnabled;
+    try { localStorage.setItem('kitchen_audio_enabled', audioEnabled ? '1' : '0'); } catch {}
+  }, [audioEnabled]);
+
+  // 페이지 로드 시 소리 ON이면, 첫 사용자 제스처에 AudioContext 자동 unlock (브라우저 자동재생 정책)
+  useEffect(() => {
+    if (!audioEnabled) return;
+    const unlock = () => {
+      const ctx = getAudioCtx();
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [audioEnabled]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
