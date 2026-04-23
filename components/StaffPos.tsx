@@ -1163,7 +1163,7 @@ export default function StaffPos() {
               </p>
               {supplyAmount === 0
                 ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
-                : <p className="text-[10px] text-gray-400">공급가 {(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : unitPrice).toLocaleString()} VND</p>}
+                : <p className="text-[10px] text-gray-400">공급가 {(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice).toLocaleString()} VND</p>}
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
               {!itemDone && deferred && localDelta !== 0 && (
                 <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : 'text-red-500')}>
@@ -1296,7 +1296,7 @@ export default function StaffPos() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                          <p className="text-[10px] text-gray-400">공급가 {(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : unitPrice).toLocaleString()} VND</p>
+                          <p className="text-[10px] text-gray-400">공급가 {(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice).toLocaleString()} VND</p>
                           {mitem.notes.length > 0 && (
                             <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
                           )}
