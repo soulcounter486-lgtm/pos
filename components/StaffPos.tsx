@@ -1310,14 +1310,28 @@ export default function StaffPos() {
                           )}
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty}개</span>
                           <button
                             onClick={() => {
-                              const vid = order.id + '_n_' + item.product_id;
-                              if (editingPriceId === vid) { setEditingPriceId(null); }
-                              else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : unitPrice)); }
+                              const vid = mitem.virtualId;
+                              const curr = localQtyEdits[vid] || 0;
+                              const next = Math.max(-mitem.totalQty, curr - 1);
+                              setLocalQtyEdits(prev => ({ ...prev, [vid]: next }));
                             }}
-                            className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors">✏️</button>
+                            disabled={loading || displayQty <= 0}
+                            className="w-7 h-7 bg-white hover:bg-red-100 hover:text-red-500 rounded-lg flex items-center justify-center text-red-400 text-sm font-bold disabled:opacity-40 transition-colors">−</button>
+                          <span className="w-7 text-center text-xs font-bold text-[#111827]">
+                            {displayQty}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const vid = mitem.virtualId;
+                              const curr = localQtyEdits[vid] || 0;
+                              const next = curr + 1;
+                              setLocalQtyEdits(prev => ({ ...prev, [vid]: next }));
+                            }}
+                            disabled={loading}
+                            className="w-7 h-7 bg-white hover:bg-blue-100 hover:text-blue-600 rounded-lg flex items-center justify-center text-green-500 text-sm font-bold disabled:opacity-40 transition-colors">+</button>
                         </div>
                       </div>
                       {isEditingPrice && (
@@ -1333,7 +1347,7 @@ export default function StaffPos() {
                           <span className="text-[10px] text-gray-400 shrink-0">VND</span>
                           <button onClick={() => {
                             const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0);
-                            setLocalPriceEdits(prev => ({ ...prev, [item.product_id]: val }));
+                            setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val }));
                             setEditingPriceId(null);
                           }}
                             className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
