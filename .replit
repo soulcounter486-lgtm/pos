@@ -36,9 +36,9 @@ expertMode = true
   [workflows.workflow.metadata]
   outputType = "webview"
 
-  [[ports]]
-  localPort = 5000
-  externalPort = 80
+[[ports]]
+localPort = 5000
+externalPort = 80
 
   [[mcp_servers]]
   name = "filesystem-with-morph"

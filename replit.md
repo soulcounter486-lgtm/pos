@@ -47,6 +47,16 @@ Run these in the Supabase SQL Editor before using related features:
 1. `supabase/migrations/add_note_column.sql` — adds `note` column to `order_items`
 2. `supabase/migrations/add_settings_table.sql` — creates `settings` table for bank info & receipt header
 
+## Morph AI Tools (Fast Apply + WarpGrep)
+
+`@morphllm/morphsdk` is installed. Two utility scripts are available in `scripts/`:
+
+- `node scripts/morph-search.cjs "<query>" [directory]` — WarpGrep semantic codebase search
+- `node scripts/morph-apply.cjs <filepath> "<instructions>" "<code_edit>"` — Fast Apply partial file edits
+
+Requires `MORPH_API_KEY` environment secret (set in Replit Secrets).  
+Note: Replit's MCP UI does not support custom servers; Morph is used via direct API calls instead.
+
 ## Replit Notes
 
 - App runs on port 5000 (required for Replit web preview)

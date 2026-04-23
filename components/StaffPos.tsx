@@ -419,6 +419,7 @@ export default function StaffPos() {
     return subtotal + tax;
   }, [cart]);
   const cartSubtotal = useMemo(() => cart.reduce((a, i) => a + i.price * i.quantity, 0), [cart]);
+  const cartTax = useMemo(() => Math.round(cartSubtotal * 0.1), [cartSubtotal]);
 
   const categories = useMemo(() => ['all', ...new Set(products.map(p => p.category))], [products]);
   const filteredProducts = useMemo(() => {
@@ -1335,7 +1336,7 @@ export default function StaffPos() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-base font-bold text-[#111827]">{cartSubtotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
-            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개 선택</p>
+            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
           </div>
           <button onClick={submitOrder} disabled={loading || cart.length === 0}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
