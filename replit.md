@@ -57,6 +57,13 @@ Run these in the Supabase SQL Editor before using related features:
 Requires `MORPH_API_KEY` environment secret (set in Replit Secrets).  
 Note: Replit's MCP UI does not support custom servers; Morph is used via direct API calls instead.
 
+### AGENT RULE — MUST FOLLOW EVERY TASK
+**모든 파일 검색·편집은 반드시 Morph 방식으로 처리한다.**
+1. 검색: `node scripts/morph-search.cjs "<query>" .`
+2. 내용 확인: read tool (파일 전체 맥락용)
+3. 편집 적용: `node scripts/morph-apply.cjs <file> "<instructions>" "<code_edit>"`
+기본 edit/write 도구를 직접 쓰지 않는다. Morph Fast Apply를 우선 사용한다.
+
 ## Replit Notes
 
 - App runs on port 5000 (required for Replit web preview)
