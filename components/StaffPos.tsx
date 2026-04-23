@@ -1064,6 +1064,11 @@ export default function StaffPos() {
     // addon 완료 주문 분리
     const baseCompletedOrders = tableCompletedOrders.filter(o => !addonOrderIds.includes(o.id));
     const addonCompletedOrders = tableCompletedOrders.filter(o => addonOrderIds.includes(o.id));
+    const serviceCompletedOrders = addonCompletedOrders.filter(o => {
+      const items = allOrderItems.filter(i => i.order_id === o.id);
+      return items.length > 0 && items.every(i => i.price === 0);
+    });
+    const addonNormalCompletedOrders = addonCompletedOrders.filter(o => !serviceCompletedOrders.map(s => s.id).includes(o.id));
 
     // 완료 주문 항목을 product_id 기준으로 합산 (addon 제외)
     const mergedCompletedItems = (() => {
@@ -1335,8 +1340,46 @@ export default function StaffPos() {
             </div>
           )}
 
-          {/* 추가 서비스 조리완료 (addon) — 기존 조리완료와 별도 표시 */}
-          {addonCompletedOrders.length > 0 && addonCompletedOrders.map(order => {
+          {/* 추가 주문 완료 (정상가격 추가주문) - 조리완료 합산 제외, 별도 카드 */}
+          {addonNormalCompletedOrders.length > 0 && addonNormalCompletedOrders.map(order => {
+            const items = allOrderItems.filter(i => i.order_id === order.id);
+            if (items.length === 0) return null;
+            const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            return (
+              <div key={order.id} className='bg-white rounded-xl shadow-sm border border-green-200 overflow-hidden'>
+                <div className='px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <span className='w-2 h-2 bg-green-400 rounded-full'></span>
+                    <span className='text-sm font-bold text-green-700'>추가 주문 완료</span>
+                    <span className='text-xs text-green-400'>{orderTime}</span>
+                  </div>
+                  <span className='text-xs text-green-600'>
+                    {items.reduce((s, i) => { const up = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price); return s + up * i.quantity; }, 0).toLocaleString()} VND
+                  </span>
+                </div>
+                <div>
+                  {items.map(item => {
+                    const product = products.find(p => p.id === item.product_id);
+                    const unitPrice = item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price);
+                    return (
+                      <div key={item.id} className='flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 px-4'>
+                        <div className='w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden'>
+                          {product?.image_url ? <img src={product.image_url} alt='' className='w-full h-full object-contain' /> : <span className='text-[8px] text-gray-300'>-</span>}
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || '상품'}</p>
+                          <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
+                        </div>
+                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {/* 추가 서비스 조리완료 (addon, price=0) — 기존 조리완료와 별도 표시 */}
+          {serviceCompletedOrders.length > 0 && serviceCompletedOrders.map(order => {
             const items = allOrderItems.filter(i => i.order_id === order.id);
             if (items.length === 0) return null;
             const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -1368,7 +1411,7 @@ export default function StaffPos() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                          <p className="text-[10px] text-gray-400">{(unitPrice * item.quantity).toLocaleString()} VND</p>
+                          <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND</p>
                         </div>
                         <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
                       </div>
@@ -1381,7 +1424,7 @@ export default function StaffPos() {
         </main>
 
         {/* 하단 고정 버튼 영역 */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-3 py-3 flex gap-1.5 shadow-lg z-30">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-1.5 shadow-lg z-30">
           <div className="flex items-center justify-between px-2 min-w-0 flex-1">
             <span className="text-sm text-gray-600 shrink-0">공급가액</span>
             <span className="text-base font-bold text-blue-600 ml-1">{Math.round(displaySupplyTotal).toLocaleString()} VND</span>
