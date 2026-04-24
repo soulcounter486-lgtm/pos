@@ -1,0 +1,161 @@
+[AM 12:01:21] === LOGIN CHECK ===
+[AM 12:01:21] username: "bep" length: 3
+[AM 12:01:21] password: "1324" length: 4
+[AM 12:01:21] trimmed username: "bep"
+[AM 12:01:21] conditions: {username.trim() === "bep": true, password === "1324": true, both true: true}
+[AM 12:01:21] SUCCESS! Redirecting to /kitchen/orders
+[AM 12:01:22] 🍳 [Kitchen] 컴포넌트 초기화
+[AM 12:01:22]    인증 성공: role=kitchen, userId: undefined
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22]    AudioContext 초기화, state: running
+[AM 12:01:22] 🍳 [activeTab] 변경: pending
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22] 📦 [Kitchen] fetchOrdersRef 업데이트
+[AM 12:01:22] 🔄 [Kitchen] 실시간 구독 설정 시작
+[AM 12:01:22]    Supabase: object
+[AM 12:01:22]    채널 이름: kitchen-orders-realtime kitchen-items-realtime
+[AM 12:01:22]    기존 채널 제거 완료
+[AM 12:01:22] ✅ [Kitchen] 실시간 구독 완료
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22] 🧹 [Kitchen] 실시간 구독 cleanup
+[AM 12:01:22] ✅ [Kitchen] orders subscription status: CLOSED
+[AM 12:01:22]    채널 제거 완료
+[AM 12:01:22] 🍳 [Kitchen] 컴포넌트 초기화
+[AM 12:01:22]    인증 성공: role=kitchen, userId: undefined
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22]    AudioContext 초기화, state: running
+[AM 12:01:22] 🍳 [activeTab] 변경: pending
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22] 📦 [Kitchen] fetchOrdersRef 업데이트
+[AM 12:01:22] 🔄 [Kitchen] 실시간 구독 설정 시작
+[AM 12:01:22]    Supabase: object
+[AM 12:01:22]    채널 이름: kitchen-orders-realtime kitchen-items-realtime
+[AM 12:01:22]    기존 채널 제거 완료
+[AM 12:01:22] ✅ [Kitchen] 실시간 구독 완료
+[AM 12:01:22] 🍳 [fetchOrders] 시작 {silent: false}
+[AM 12:01:22]    현재 탭: pending
+[AM 12:01:22]    카운트 쿼리 실행...
+[AM 12:01:22] The above error occurred in the <NotFoundErrorBoundary> component:
+
+    at KitchenOrders (webpack-internal:///(app-pages-browser)/./app/kitchen/orders/page.tsx:81:78)
+    at ClientPageRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:14:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at body
+    at html
+    at RootLayout (Server)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9)
+    at HotReload (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:11)
+    at Router (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:11)
+    at ErrorBoundaryHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at AppRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:585:13)
+    at ServerRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27)
+    at Root (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:11)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ReactDevOverlay.
+[AM 12:01:22] 🧹 [Kitchen] 실시간 구독 cleanup
+[AM 12:01:22] ✅ [Kitchen] orders subscription status: CLOSED
+[AM 12:01:22]    채널 제거 완료
+[AM 12:01:22] WebSocket connection to 'wss://omvrrwbypmsdfxakzlnh.supabase.co/realtime/v1/websocket?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJyd2J5cG1zZGZ4YWt6bG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTY0MDYsImV4cCI6MjA5MTQ3MjQwNn0.MvsNd-sy_MPz4W3Lrg-6ld3fff-4iemxD1qlOm4t0Co&vsn=2.0.0' failed: WebSocket is closed before the connection is established.
+[AM 12:01:23] === playNotificationSound called ===
+[AM 12:01:23] Speech notification sent
+[AM 12:01:23] MAXIMUM alarm played
+[AM 12:01:23]    페이지 로드 후 테스트 소리 재생
+[AM 12:01:23] === playNotificationSound called ===
+[AM 12:01:23] Speech notification sent
+[AM 12:01:23] MAXIMUM alarm played
+[AM 12:01:23]    페이지 로드 후 테스트 소리 재생
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    카운트 결과: {pending: 3, completed: 0}
+[AM 12:01:23]    주문/아이템/테이블/상품 조회 시작...
+[AM 12:01:23]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:23]    total items in DB: 4
+[AM 12:01:23]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:23]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:23]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:23] ✅ [Kitchen] 처리된 주문 수: 3
+[AM 12:01:23] Failed to load resource: the server responded with a status of 404 (Not Found)
+[AM 12:01:24]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:24]    total items in DB: 4
+[AM 12:01:24]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:24] ✅ [Kitchen] 처리된 주문 수: 3
+[AM 12:01:24]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:24]    total items in DB: 4
+[AM 12:01:24]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:24] ✅ [Kitchen] 처리된 주문 수: 3
+[AM 12:01:24]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:24]    total items in DB: 4
+[AM 12:01:24]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:24] ✅ [Kitchen] 처리된 주문 수: 3
+[AM 12:01:24]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:24]    total items in DB: 4
+[AM 12:01:24]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:24] ✅ [Kitchen] 처리된 주문 수: 3
+[AM 12:01:24]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 3, itemsCount: 4}
+[AM 12:01:24]    total items in DB: 4
+[AM 12:01:24]    Order: 1881af03-782c-4cf2-b806-b052566a6fce Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: 2538bb57-e02d-4674-885b-df0ab923dcc7 Items: 1 allItems: 4 status: pending
+[AM 12:01:24]    Order: a570a58a-b43c-46a5-b444-d175cbd08329 Items: 1 allItems: 4 status: pending
+[AM 12:01:24] ✅ [Kitchen] 처리된 주문 수: 3

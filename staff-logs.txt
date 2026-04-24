@@ -1,0 +1,184 @@
+[AM 12:00:58] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o
+[AM 12:01:00] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[AM 12:01:00] Failed to load resource: the server responded with a status of 404 (Not Found)
+[AM 12:01:05] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:05] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:05] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:05] 🖥️ PC 화면: false 너비: 768
+[AM 12:01:05] %c[테이블] 뒤로가기 처리 useEffect color: cyan {selectedTable: null}
+[AM 12:01:05] 🚀 [초기화] loadAllData() 호출
+[AM 12:01:05] 📥 [loadAllData] 시작
+[AM 12:01:05] 📦 [fetchProducts] 시작
+[AM 12:01:05]    Supabase 쿼리: products.select *
+[AM 12:01:05] 🪑 [fetchTables] 시작
+[AM 12:01:05]    Supabase 쿼리: tables.select *
+[AM 12:01:06] 📋 [fetchOrders] 시작
+[AM 12:01:06]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:06] ⚙️ [fetchSettings] 시작
+[AM 12:01:06]    Supabase 쿼리: settings.select * where id=default
+[AM 12:01:06] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:06] 🔄 [실시간] 구독 설정 시작
+[AM 12:01:06]   Supabase 객체: object
+[AM 12:01:06]    channel() 메서드 존재: function
+[AM 12:01:06]    새 채널 생성: staff-realtime-updates
+[AM 12:01:06] ✅ [실시간] 구독 완료 - channelName: staff-realtime-updates channel: RealtimeChannel
+[AM 12:01:06] pendingChangesRef 업데이트: []
+[AM 12:01:06] 🧹 [실시간] cleanup 실행
+[AM 12:01:06] ✅ [실시간] subscription status: CLOSED
+[AM 12:01:06]    채널 제거 완료
+[AM 12:01:06] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:06] 🖥️ PC 화면: false 너비: 768
+[AM 12:01:06] %c[테이블] 뒤로가기 처리 useEffect color: cyan {selectedTable: null}
+[AM 12:01:06] 🚀 [초기화] loadAllData() 호출
+[AM 12:01:06] 📥 [loadAllData] 시작
+[AM 12:01:06] 📦 [fetchProducts] 시작
+[AM 12:01:06]    Supabase 쿼리: products.select *
+[AM 12:01:06] 🪑 [fetchTables] 시작
+[AM 12:01:06]    Supabase 쿼리: tables.select *
+[AM 12:01:06] 📋 [fetchOrders] 시작
+[AM 12:01:06]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:06] ⚙️ [fetchSettings] 시작
+[AM 12:01:06]    Supabase 쿼리: settings.select * where id=default
+[AM 12:01:06] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:06] 🔄 [실시간] 구독 설정 시작
+[AM 12:01:06]   Supabase 객체: object
+[AM 12:01:06]    channel() 메서드 존재: function
+[AM 12:01:06]    새 채널 생성: staff-realtime-updates
+[AM 12:01:06] ✅ [실시간] 구독 완료 - channelName: staff-realtime-updates channel: RealtimeChannel
+[AM 12:01:06] pendingChangesRef 업데이트: []
+[AM 12:01:06] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:06] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:06] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:06] ✅ [실시간] subscription status: SUBSCRIBED
+[AM 12:01:06] ✅ [fetchSettings] 설정 로드 완료
+[AM 12:01:06] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:06] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:06] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchProducts] 성공 - 2 개 상품
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchTables] 성공 - 10 개 테이블
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchSettings] 설정 로드 완료
+[AM 12:01:07] ✅ [fetchProducts] 성공 - 2 개 상품
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchTables] 성공 - 10 개 테이블
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchOrders] DB 조회 완료 - orders: 2 items: 2
+[AM 12:01:07]    [fetchOrders] itemsList 크기: 2
+[AM 12:01:07]    [fetchOrders] dbItemMap 크기: 2
+[AM 12:01:07]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:07]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:07] 🔄 [fetchOrders] 상태 업데이트: allOrders= 2 allOrderItems= 2
+[AM 12:01:07] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 2, items: 2, pendingChangesCount: 0}
+[AM 12:01:07] ✅ [loadAllData] 완료 - dataLoaded=true
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:07] ✅ [fetchOrders] DB 조회 완료 - orders: 2 items: 2
+[AM 12:01:07]    [fetchOrders] itemsList 크기: 2
+[AM 12:01:07]    [fetchOrders] dbItemMap 크기: 2
+[AM 12:01:07]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:07]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:07] 🔄 [fetchOrders] 상태 업데이트: allOrders= 2 allOrderItems= 2
+[AM 12:01:07] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 2, items: 2, pendingChangesCount: 0}
+[AM 12:01:07] ✅ [loadAllData] 완료 - dataLoaded=true
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:07] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:08] 🔵 [selectTable] 호출 {tableId: 1, view: orders, currentView: orders, selectedTable: null, allOrdersCount: 2}
+[AM 12:01:08] 🔵 [selectTable] tableIdNum 추출: 1
+[AM 12:01:08] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:08] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:08] %c[테이블] 뒤로가기 처리 useEffect color: cyan {selectedTable: 1}
+[AM 12:01:08] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:08] 🔵 [selectTable] 상태 업데이트 후: {selectedTable: null, currentView: orders}
+[AM 12:01:11] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:11] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:11] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:13] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:13] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:13] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:13] 📋 [fetchOrders] 시작
+[AM 12:01:13]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:13] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:13] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:13] 🔴 [MESSAGE SET] {message: 주문이 완료되었습니다!, timestamp: 2026-04-22T17:01:13.696Z, stack: Error
+    at eval (webpack-internal:///(app-pages-…d/react-dom/cjs/react-dom.development.js:23256:9)}
+[AM 12:01:13] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:13] 🔄 [실시간] orders 변경 감지: {eventType: INSERT, newStatus: pending, oldStatus: undefined, tableId: 1, timestamp: 오전 12:01:13}
+[AM 12:01:13]    → fetchOrders 호출 전
+[AM 12:01:13] 📋 [fetchOrders] 시작
+[AM 12:01:13]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:13] 🔄 [실시간] orders 변경 감지: {eventType: INSERT, newStatus: pending, oldStatus: undefined, tableId: 1, timestamp: 오전 12:01:13}
+[AM 12:01:13]    → fetchOrders 호출 전
+[AM 12:01:13] 📋 [fetchOrders] 시작
+[AM 12:01:13]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:13] 🔄 [실시간] order_items 변경 감지: {eventType: INSERT, orderId: 2538bb57-e02d-4674-885b-df0ab923dcc7, productId: a3d54bd5-7dac-48f0-9906-6af9f678a3d0, quantity: 1, status: pending}
+[AM 12:01:13]    → fetchOrders 호출 전
+[AM 12:01:14] 📋 [fetchOrders] 시작
+[AM 12:01:14]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:14] 🔄 [실시간] order_items 변경 감지: {eventType: INSERT, orderId: 1881af03-782c-4cf2-b806-b052566a6fce, productId: a3d54bd5-7dac-48f0-9906-6af9f678a3d0, quantity: 1, status: pending}
+[AM 12:01:14]    → fetchOrders 호출 전
+[AM 12:01:14] 📋 [fetchOrders] 시작
+[AM 12:01:14]    Supabase 쿼리: orders.select * + order_items.select *
+[AM 12:01:14] ✅ [fetchOrders] DB 조회 완료 - orders: 4 items: 4
+[AM 12:01:14]    [fetchOrders] itemsList 크기: 4
+[AM 12:01:14]    [fetchOrders] dbItemMap 크기: 4
+[AM 12:01:14]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:14]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:14] 🔄 [fetchOrders] 상태 업데이트: allOrders= 4 allOrderItems= 4
+[AM 12:01:14] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 4, items: 4, pendingChangesCount: 0}
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:14] ✅ [fetchOrders] DB 조회 완료 - orders: 4 items: 4
+[AM 12:01:14]    [fetchOrders] itemsList 크기: 4
+[AM 12:01:14]    [fetchOrders] dbItemMap 크기: 4
+[AM 12:01:14]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:14]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:14] 🔄 [fetchOrders] 상태 업데이트: allOrders= 4 allOrderItems= 4
+[AM 12:01:14] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 4, items: 4, pendingChangesCount: 0}
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:14] ✅ [fetchOrders] DB 조회 완료 - orders: 4 items: 4
+[AM 12:01:14]    [fetchOrders] itemsList 크기: 4
+[AM 12:01:14]    [fetchOrders] dbItemMap 크기: 4
+[AM 12:01:14]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:14]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:14] 🔄 [fetchOrders] 상태 업데이트: allOrders= 4 allOrderItems= 4
+[AM 12:01:14] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 4, items: 4, pendingChangesCount: 0}
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:14] ✅ [fetchOrders] DB 조회 완료 - orders: 4 items: 4
+[AM 12:01:14]    [fetchOrders] itemsList 크기: 4
+[AM 12:01:14]    [fetchOrders] dbItemMap 크기: 4
+[AM 12:01:14]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:14]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:14] 🔄 [fetchOrders] 상태 업데이트: allOrders= 4 allOrderItems= 4
+[AM 12:01:14] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 4, items: 4, pendingChangesCount: 0}
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:14] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:15] ✅ [fetchOrders] DB 조회 완료 - orders: 4 items: 4
+[AM 12:01:15]    [fetchOrders] itemsList 크기: 4
+[AM 12:01:15]    [fetchOrders] dbItemMap 크기: 4
+[AM 12:01:15]    [fetchOrders] pendingChangesRef.current: []
+[AM 12:01:15]    [fetchOrders] pendingAdjustments: {}
+[AM 12:01:15] 🔄 [fetchOrders] 상태 업데이트: allOrders= 4 allOrderItems= 4
+[AM 12:01:15] ✅ [fetchOrders] 완료 - 실시간 데이터 반영: {orders: 4, items: 4, pendingChangesCount: 0}
+[AM 12:01:15] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:15] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:15] 📦 [실시간] fetchOrdersRef 업데이트
+[AM 12:01:16] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:16] %c[StaffPos] 컴포넌트 초기화 color: blue; font-weight: bold
+[AM 12:01:16] 📦 [실시간] fetchOrdersRef 업데이트

@@ -1,0 +1,145 @@
+[PM 11:38:09] === LOGIN CHECK ===
+[PM 11:38:09] username: "bep" length: 3
+[PM 11:38:09] password: "1324" length: 4
+[PM 11:38:09] trimmed username: "bep"
+[PM 11:38:09] conditions: {username.trim() === "bep": true, password === "1324": true, both true: true}
+[PM 11:38:09] SUCCESS! Redirecting to /kitchen/orders
+[PM 11:38:13] [Fast Refresh] rebuilding
+[PM 11:38:15] [Fast Refresh] done in 2318ms
+[PM 11:38:15] 🍳 [Kitchen] 컴포넌트 초기화
+[PM 11:38:15]    인증 성공: role=kitchen, userId: undefined
+[PM 11:38:15] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:15]    현재 탭: pending
+[PM 11:38:15]    카운트 쿼리 실행...
+[PM 11:38:16]    AudioContext 초기화, state: running
+[PM 11:38:16] 🍳 [activeTab] 변경: pending
+[PM 11:38:16] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:16]    현재 탭: pending
+[PM 11:38:16]    카운트 쿼리 실행...
+[PM 11:38:16] 📦 [Kitchen] fetchOrdersRef 업데이트
+[PM 11:38:16] 🔄 [Kitchen] 실시간 구독 설정 시작
+[PM 11:38:16]    Supabase: object
+[PM 11:38:16]    채널 이름: kitchen-orders-realtime kitchen-items-realtime
+[PM 11:38:16]    기존 채널 제거 완료
+[PM 11:38:16] ✅ [Kitchen] 실시간 구독 완료
+[PM 11:38:16] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:16]    현재 탭: pending
+[PM 11:38:16]    카운트 쿼리 실행...
+[PM 11:38:16] 🧹 [Kitchen] 실시간 구독 cleanup
+[PM 11:38:16] ✅ [Kitchen] orders subscription status: CLOSED
+[PM 11:38:16]    채널 제거 완료
+[PM 11:38:16] 🍳 [Kitchen] 컴포넌트 초기화
+[PM 11:38:16]    인증 성공: role=kitchen, userId: undefined
+[PM 11:38:16] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:16]    현재 탭: pending
+[PM 11:38:16]    카운트 쿼리 실행...
+[PM 11:38:16]    AudioContext 초기화, state: running
+[PM 11:38:16] 🍳 [activeTab] 변경: pending
+[PM 11:38:16] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:16]    현재 탭: pending
+[PM 11:38:16]    카운트 쿼리 실행...
+[PM 11:38:16] 📦 [Kitchen] fetchOrdersRef 업데이트
+[PM 11:38:16] 🔄 [Kitchen] 실시간 구독 설정 시작
+[PM 11:38:16]    Supabase: object
+[PM 11:38:16]    채널 이름: kitchen-orders-realtime kitchen-items-realtime
+[PM 11:38:16]    기존 채널 제거 완료
+[PM 11:38:16] ✅ [Kitchen] 실시간 구독 완료
+[PM 11:38:16] 🍳 [fetchOrders] 시작 {silent: false}
+[PM 11:38:16]    현재 탭: pending
+[PM 11:38:16]    카운트 쿼리 실행...
+[PM 11:38:16] The above error occurred in the <NotFoundErrorBoundary> component:
+
+    at KitchenOrders (webpack-internal:///(app-pages-browser)/./app/kitchen/orders/page.tsx:81:78)
+    at ClientPageRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:14:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at InnerLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:243:11)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at LoadingBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:349:11)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at InnerScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:153:9)
+    at ScrollAndFocusHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:228:11)
+    at RenderFromTemplateContext (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js:16:44)
+    at OuterLayoutRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js:370:11)
+    at body
+    at html
+    at RootLayout (Server)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9)
+    at HotReload (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:11)
+    at Router (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:11)
+    at ErrorBoundaryHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at AppRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:585:13)
+    at ServerRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27)
+    at Root (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:11)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ReactDevOverlay.
+[PM 11:38:16] 🧹 [Kitchen] 실시간 구독 cleanup
+[PM 11:38:16] ✅ [Kitchen] orders subscription status: CLOSED
+[PM 11:38:16]    채널 제거 완료
+[PM 11:38:16] WebSocket connection to 'wss://omvrrwbypmsdfxakzlnh.supabase.co/realtime/v1/websocket?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdnJyd2J5cG1zZGZ4YWt6bG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTY0MDYsImV4cCI6MjA5MTQ3MjQwNn0.MvsNd-sy_MPz4W3Lrg-6ld3fff-4iemxD1qlOm4t0Co&vsn=2.0.0' failed: WebSocket is closed before the connection is established.
+[PM 11:38:16] === playNotificationSound called ===
+[PM 11:38:16] Speech notification sent
+[PM 11:38:16] MAXIMUM alarm played
+[PM 11:38:16]    페이지 로드 후 테스트 소리 재생
+[PM 11:38:16] === playNotificationSound called ===
+[PM 11:38:16] Speech notification sent
+[PM 11:38:16] MAXIMUM alarm played
+[PM 11:38:16]    페이지 로드 후 테스트 소리 재생
+[PM 11:38:16] Failed to load resource: the server responded with a status of 404 (Not Found)
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:16]    카운트 결과: {pending: 0, completed: 0}
+[PM 11:38:16]    주문/아이템/테이블/상품 조회 시작...
+[PM 11:38:17]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:17]    total items in DB: 1
+[PM 11:38:17] ✅ [Kitchen] 처리된 주문 수: 0
+[PM 11:38:17]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:17]    total items in DB: 1
+[PM 11:38:17] ✅ [Kitchen] 처리된 주문 수: 0
+[PM 11:38:18]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:18]    total items in DB: 1
+[PM 11:38:18] ✅ [Kitchen] 처리된 주문 수: 0
+[PM 11:38:18]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:18]    total items in DB: 1
+[PM 11:38:18] ✅ [Kitchen] 처리된 주문 수: 0
+[PM 11:38:18]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:18]    total items in DB: 1
+[PM 11:38:18] ✅ [Kitchen] 처리된 주문 수: 0
+[PM 11:38:18]    쿼리 결과: {ordersError: null, itemsError: null, ordersCount: 0, itemsCount: 1}
+[PM 11:38:18]    total items in DB: 1
+[PM 11:38:18] ✅ [Kitchen] 처리된 주문 수: 0

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "mcp": {
+    "morph-mcp": {
+      "type": "local",
+      "command": ["node", "D:/pos/node_modules/@morphllm/morphmcp/dist/index.js", "D:/pos"],
+      "environment": {
+        "MORPH_API_KEY": "sk-Y0KPgAwovoA9mLx675XdcLYgtxxnLIviQw1RQv38CHXPZi16",
+        "MORPH_MCP_TIMEOUT": "30000"
+      },
+      "enabled": true
+    }
+  }
+}

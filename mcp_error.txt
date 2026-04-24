@@ -1,0 +1,1 @@
+[os=Windows] Secure MCP Filesystem Server running on stdio

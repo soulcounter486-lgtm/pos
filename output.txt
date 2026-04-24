@@ -1,0 +1,4 @@
+Line 43: "  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: 'POS 스탠다랑', staff_header"
+Line 110: "      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', r"
+Line 860: '            <h1 className="text-xl font-bold">{settings.staff_header_text || \'POS ?�스??}</h1>'
+Line 1527: "            ? `${settings.receipt_header || 'POS'}\\n?�?? ${settings.bank_name}\\n계좌: ${settings.account_number}\\n?�금�? ${settings.account_holder}\\n금액: "
