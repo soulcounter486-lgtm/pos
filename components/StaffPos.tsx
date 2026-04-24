@@ -851,7 +851,7 @@ export default function StaffPos() {
                 <button onClick={goBack} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded">✕</button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               {splitPending.length > 0 && (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
                   <div className="px-3 py-2 flex items-center justify-between border-b border-amber-100">
@@ -903,10 +903,10 @@ export default function StaffPos() {
             </div>
             {/* 하단 고정 액션 영역 (스크롤 X) */}
             <div className="relative border-t border-gray-100 bg-white flex-shrink-0">
-              {/* 우하단 플러스/닫기 플로팅 버튼 */}
+              {/* 액션바 위쪽으로 띄운 + / ✕ 플로팅 버튼 (결제 버튼과 겹치지 않게) */}
               <button
                 onClick={() => setCurrentView(currentView === 'menu' ? 'orders' : 'menu')}
-                className={'absolute -top-7 right-4 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl text-white transition-all ' +
+                className={'absolute -top-16 right-4 w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-xl text-white transition-all ring-4 ring-white ' +
                   (currentView === 'menu' ? 'bg-gray-700 hover:bg-gray-800' : 'bg-blue-500 hover:bg-blue-600')}
                 title={currentView === 'menu' ? '메뉴 닫기' : '메뉴 열기'}>
                 {currentView === 'menu' ? '✕' : '+'}
