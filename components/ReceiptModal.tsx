@@ -150,7 +150,6 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
     'uob': '970458',
     'maritime bank': '970426',
     'maritime': '970426',
-    'sacombank': '970403',
     'vib bank': '970441',
     'vibbank': '970441',
   };
