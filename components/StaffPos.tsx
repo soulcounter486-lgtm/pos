@@ -1396,9 +1396,20 @@ export default function StaffPos() {
                             <div className="flex flex-wrap gap-1.5">
                               {(() => {
                                 if (payable <= 0) return [] as number[];
-                                const step = payable < 1_000_000 ? 100_000 : payable < 5_000_000 ? 500_000 : 1_000_000;
-                                const base = Math.ceil(payable / step) * step;
-                                return [base, base + step, base + 2 * step, base + 3 * step];
+                                // 베트남동 화폐단위 사다리: 작은 단위 → 큰 단위 순으로 4개의 칩 생성
+                                const denoms = payable < 100_000
+                                  ? [10_000, 20_000, 50_000, 100_000]
+                                  : payable < 5_000_000
+                                    ? [100_000, 200_000, 500_000, 1_000_000]
+                                    : [500_000, 1_000_000, 2_000_000, 5_000_000];
+                                const chips: number[] = [];
+                                let prev = payable - 1;
+                                for (const d of denoms) {
+                                  const next = Math.ceil((prev + 1) / d) * d;
+                                  chips.push(next);
+                                  prev = next;
+                                }
+                                return chips;
                               })().map(v => (
                                 <button key={v} onClick={() => setCashReceivedStr(v.toLocaleString())}
                                   className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full px-2.5 py-1 font-medium">
