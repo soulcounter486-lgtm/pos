@@ -827,7 +827,7 @@ export default function StaffPos() {
 
   function renderSplitOrdersPanel() {
     return (
-      <aside className="hidden lg:flex lg:flex-col lg:w-96 xl:w-[420px] lg:min-h-screen lg:max-h-screen border-l border-gray-200 bg-white overflow-hidden flex-shrink-0">
+      <aside className="hidden lg:flex lg:flex-col lg:w-96 xl:w-[420px] lg:h-screen lg:sticky lg:top-0 border-l border-gray-200 bg-white overflow-hidden flex-shrink-0">
         {!selectedTable ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
             <div className="text-5xl mb-4">👈</div>
@@ -836,14 +836,20 @@ export default function StaffPos() {
           </div>
         ) : (
           <>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-400 mt-0.5 truncate">
                   {splitTableOrders.length === 0 ? '주문 없음' : `${splitTableOrders.length}건 · ${Math.round(splitTotal).toLocaleString()} VND`}
                 </p>
               </div>
-              <button onClick={goBack} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded">✕ 해제</button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100">
+                  📋 히스토리
+                </button>
+                <button onClick={goBack} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded">✕</button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {splitPending.length > 0 && (
@@ -896,7 +902,7 @@ export default function StaffPos() {
               )}
             </div>
             {/* 하단 고정 액션 영역 (스크롤 X) */}
-            <div className="relative border-t border-gray-100 bg-white">
+            <div className="relative border-t border-gray-100 bg-white flex-shrink-0">
               {/* 우하단 플러스/닫기 플로팅 버튼 */}
               <button
                 onClick={() => setCurrentView(currentView === 'menu' ? 'orders' : 'menu')}
@@ -921,11 +927,6 @@ export default function StaffPos() {
                   className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-xs font-bold shadow">
                   💳 결제하기
                 </button>
-              </div>
-              <div className="px-3 pb-2 flex items-center justify-between text-[11px]">
-                <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
-                  className="text-gray-400 hover:text-gray-600">📋 히스토리</button>
-                <span className="text-gray-500">합계 <strong className="text-gray-700">{Math.round(splitTotal).toLocaleString()}</strong> VND</span>
               </div>
             </div>
           </>
