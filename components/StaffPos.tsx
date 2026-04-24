@@ -30,6 +30,10 @@ export default function StaffPos() {
   const [currentView, setCurrentView] = useState<'orders' | 'menu' | 'merged-orders'>('orders');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderData[]>([]);
+  // 결제 모달 상태
+  const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'transfer' | 'mixed'>('cash');
+  const [cashReceivedStr, setCashReceivedStr] = useState<string>('');
+  const [discountStr, setDiscountStr] = useState<string>('0');
   const [dataLoaded, setDataLoaded] = useState(false);
   // 완료 주문 수량 로컬 편집 (주문하기 클릭 전까지 DB 미반영)
   const [localQtyEdits, setLocalQtyEdits] = useState<Record<string, number>>({});
@@ -669,12 +673,13 @@ export default function StaffPos() {
     setShowReceiptModal(true);
   }
 
-  async function completePayment(method: string) {
+  async function completePayment(method: string, paidAmount?: number) {
     setShowPaymentModal(false);
     const orders = pendingOrders;
     const tableId = selectedTable;
     if (!tableId || orders.length === 0) return;
-    const total = orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    const computedTotal = orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
+    const total = (paidAmount !== undefined && paidAmount >= 0) ? paidAmount : computedTotal;
     const orderIds = orders.map(o => o.id);
     // 테이블 UUID 조회 (orders.table_id 는 UUID)
     const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === tableId)?.id;
@@ -1160,35 +1165,79 @@ export default function StaffPos() {
 
   function renderPaymentModal() {
     if (!showPaymentModal) return null;
-    const payTotal = Math.round(pendingOrders.reduce((s, order) => {
-      return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
+    // 항목별 공급가/세금 합산
+    let subtotal = 0;
+    let taxAmount = 0;
+    let itemCount = 0;
+    pendingOrders.forEach(order => {
+      allOrderItems.filter(i => i.order_id === order.id).forEach(item => {
         const up = (order.status === 'completed' && localItemPriceEdits[item.id] !== undefined)
           ? localItemPriceEdits[item.id]
           : (order.status === 'completed' && localPriceEdits[item.product_id] !== undefined)
             ? localPriceEdits[item.product_id]
             : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
-        return sum + up * item.quantity;
-      }, 0);
-    }, 0));
+        const supply = up * item.quantity;
+        const product = products.find(p => p.id === item.product_id);
+        const taxRate = product?.tax_rate ?? 0.1;
+        subtotal += supply;
+        taxAmount += supply * taxRate;
+        itemCount += item.quantity;
+      });
+    });
+    subtotal = Math.round(subtotal);
+    taxAmount = Math.round(taxAmount);
+    const discount = Math.max(0, parseInt(discountStr.replace(/[^\d]/g, '') || '0', 10) || 0);
+    const payable = Math.max(0, subtotal + taxAmount - discount);
+    const cashReceived = parseInt(cashReceivedStr.replace(/[^\d]/g, '') || '0', 10) || 0;
+    const change = cashReceived - payable;
     const hasBankInfo = settings.bank_name || settings.account_number;
     const qrValue = hasBankInfo
-      ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${payTotal.toLocaleString()} VND`
+      ? `${settings.receipt_header || 'POS'}\n은행: ${settings.bank_name}\n계좌: ${settings.account_number}\n예금주: ${settings.account_holder}\n금액: ${payable.toLocaleString()} VND`
       : '';
+
+    const closeModal = () => {
+      setShowPaymentModal(false);
+      setShowTransferQR(false);
+      setPendingOrders([]);
+      setPayMethod('cash');
+      setCashReceivedStr('');
+      setDiscountStr('0');
+    };
+
+    const handlePay = () => {
+      if (payMethod === 'transfer') { setShowTransferQR(true); return; }
+      if (payMethod === 'cash' && cashReceived > 0 && cashReceived < payable) {
+        setMessage('받은 금액이 부족합니다.');
+        return;
+      }
+      completePayment(payMethod, payable);
+      setPayMethod('cash');
+      setCashReceivedStr('');
+      setDiscountStr('0');
+    };
+
+    const methods: Array<{ key: 'cash' | 'card' | 'transfer' | 'mixed'; icon: string; name: string }> = [
+      { key: 'cash', icon: '💵', name: '현금 (Tiền mặt)' },
+      { key: 'card', icon: '💳', name: '카드 (Thẻ)' },
+      { key: 'transfer', icon: '🏦', name: '계좌이체 (Chuyển khoản)' },
+      { key: 'mixed', icon: '🔀', name: '혼합 (Kết hợp)' },
+    ];
+
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+        <div className="bg-[#F8F9FA] sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-screen flex flex-col overflow-hidden">
           {showTransferQR ? (
             <>
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 bg-white">
                 <button onClick={() => setShowTransferQR(false)} className="text-gray-400 hover:text-gray-600">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <div>
                   <h3 className="text-lg font-bold text-[#111827]">계좌이체 결제</h3>
-                  <p className="text-sm text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
+                  <p className="text-sm text-gray-400">Table {selectedTable} · {payable.toLocaleString()} VND</p>
                 </div>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-4 bg-white">
                 {hasBankInfo ? (
                   <div className="flex items-start gap-4 bg-blue-50 rounded-xl p-4 border border-blue-100">
                     <div className="bg-white p-2 rounded-lg border border-blue-200 flex-shrink-0">
@@ -1207,11 +1256,11 @@ export default function StaffPos() {
                 )}
                 <div className="bg-gray-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-gray-400">이체 금액</p>
-                  <p className="text-xl font-bold text-blue-600">{payTotal.toLocaleString()} VND</p>
+                  <p className="text-xl font-bold text-blue-600">{payable.toLocaleString()} VND</p>
                 </div>
               </div>
-              <div className="px-5 pb-5 space-y-2">
-                <button onClick={() => { setShowTransferQR(false); completePayment('transfer'); }}
+              <div className="px-5 pb-5 space-y-2 bg-white">
+                <button onClick={() => { setShowTransferQR(false); completePayment('transfer', payable); }}
                   disabled={!hasBankInfo}
                   className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors">
                   이체 완료 · 결제 처리
@@ -1222,33 +1271,139 @@ export default function StaffPos() {
             </>
           ) : (
             <>
-              <div className="px-6 py-5 border-b border-gray-100">
-                <h3 className="text-lg font-bold text-[#111827]">결제 수단</h3>
-                <p className="text-sm text-gray-400">Table {selectedTable} · {payTotal.toLocaleString()} VND</p>
+              {/* 헤더 */}
+              <div className="px-4 py-3 bg-white flex items-center gap-3 border-b border-gray-100">
+                <button onClick={closeModal} className="p-1 -ml-1 text-gray-700">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="flex-1 text-center">
+                  <h3 className="text-base font-bold text-[#111827]">결제 (Thanh toán)</h3>
+                  <p className="text-xs text-gray-400">Table {selectedTable}</p>
+                </div>
+                <button onClick={() => issueReceipt()} className="p-1 text-gray-600" title="가영수증">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </button>
               </div>
-              <div className="p-4 space-y-2">
-                {[
-                  { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
-                  { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
-                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer · QR' },
-                ].map(m => (
-                  <button key={m.key}
-                    onClick={() => { if (m.key === 'transfer') { setShowTransferQR(true); } else { completePayment(m.key); } }}
-                    className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
-                    <span className="text-2xl">{m.icon}</span>
-                    <div>
-                      <p className="font-semibold text-[#111827]">{m.name}</p>
-                      <p className="text-xs text-gray-400">{m.sub}</p>
+
+              <div className="flex-1 overflow-y-auto">
+                {/* 고객 카드 */}
+                <div className="p-3">
+                  <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     </div>
-                    {m.key === 'transfer' && hasBankInfo && (
-                      <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">QR</span>
-                    )}
-                  </button>
-                ))}
+                    <span className="text-sm text-[#111827]">일반손님 (Khách lẻ)</span>
+                  </div>
+                </div>
+
+                {/* 금액 요약 */}
+                <div className="px-3">
+                  <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">총 상품금액</span>
+                        <span className="text-[10px] bg-blue-100 text-blue-600 rounded-full px-2 py-0.5 font-medium">{itemCount}</span>
+                      </div>
+                      <span className="text-sm text-[#111827]">{subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="border-t border-dashed border-gray-200" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">할인 (Giảm giá)</span>
+                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={discountStr}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^\d]/g, '');
+                          setDiscountStr(v ? parseInt(v, 10).toLocaleString() : '0');
+                        }}
+                        className="w-28 text-right text-sm text-[#111827] bg-transparent outline-none focus:bg-blue-50 rounded px-1"
+                      />
+                    </div>
+                    <div className="border-t border-dashed border-gray-200" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">세금 (Tiền thuế)</span>
+                      <span className="text-sm text-[#111827]">{taxAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="border-t border-gray-200" />
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-sm font-bold text-[#111827]">받을 금액</span>
+                      <span className="text-base font-bold text-[#111827]">{payable.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 결제수단 */}
+                <div className="px-3 pt-4 pb-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider px-1">결제수단 (Phương thức thanh toán)</p>
+                </div>
+                <div className="px-3 pb-4 space-y-2">
+                  {methods.map(m => {
+                    const selected = payMethod === m.key;
+                    return (
+                      <div key={m.key} className={'bg-white rounded-xl border transition-all ' + (selected ? 'border-blue-400 ring-1 ring-blue-300' : 'border-gray-200')}>
+                        <button
+                          onClick={() => setPayMethod(m.key)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                          <span className="text-xl">{m.icon}</span>
+                          <span className={'text-sm font-medium flex-1 ' + (selected ? 'text-blue-600' : 'text-[#111827]')}>{m.name}</span>
+                          {m.key === 'cash' && selected && (
+                            <span className="text-[10px] bg-blue-500 text-white rounded-md px-2 py-1 font-bold">VND</span>
+                          )}
+                        </button>
+                        {m.key === 'cash' && selected && (
+                          <div className="px-4 pb-3 -mt-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500 flex-1">받은 금액</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder={payable.toLocaleString()}
+                                value={cashReceivedStr}
+                                onChange={(e) => {
+                                  const v = e.target.value.replace(/[^\d]/g, '');
+                                  setCashReceivedStr(v ? parseInt(v, 10).toLocaleString() : '');
+                                }}
+                                className="w-40 text-right text-sm font-semibold text-[#111827] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[payable, 200000, 500000, 1000000].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map(v => (
+                                <button key={v} onClick={() => setCashReceivedStr(v.toLocaleString())}
+                                  className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full px-2.5 py-1 font-medium">
+                                  {v.toLocaleString()}
+                                </button>
+                              ))}
+                            </div>
+                            {cashReceivedStr && (
+                              <div className={'flex items-center justify-between px-3 py-2 rounded-lg ' + (change >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
+                                <span className={'text-xs font-medium ' + (change >= 0 ? 'text-emerald-700' : 'text-red-700')}>거스름돈 (Tiền thừa)</span>
+                                <span className={'text-sm font-bold ' + (change >= 0 ? 'text-emerald-700' : 'text-red-700')}>
+                                  {change.toLocaleString()} VND
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <button onClick={() => { setShowPaymentModal(false); setShowTransferQR(false); setPendingOrders([]); }}
-                  className="w-full text-gray-400 hover:text-[#374151] py-2 text-sm font-medium">취소</button>
+
+              {/* 하단 액션바 */}
+              <div className="bg-white border-t border-gray-200 p-3 flex items-center gap-2">
+                <button onClick={() => issueReceipt()}
+                  className="px-4 py-3 border-2 border-blue-500 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors whitespace-nowrap">
+                  가영수증
+                </button>
+                <button onClick={handlePay}
+                  className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-colors">
+                  결제: {payable.toLocaleString()}
+                </button>
               </div>
             </>
           )}
