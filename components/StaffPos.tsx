@@ -1394,7 +1394,12 @@ export default function StaffPos() {
                               />
                             </div>
                             <div className="flex flex-wrap gap-1.5">
-                              {[payable, 200000, 500000, 1000000].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map(v => (
+                              {(() => {
+                                if (payable <= 0) return [] as number[];
+                                const step = payable < 1_000_000 ? 100_000 : payable < 5_000_000 ? 500_000 : 1_000_000;
+                                const base = Math.ceil(payable / step) * step;
+                                return [base, base + step, base + 2 * step, base + 3 * step];
+                              })().map(v => (
                                 <button key={v} onClick={() => setCashReceivedStr(v.toLocaleString())}
                                   className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full px-2.5 py-1 font-medium">
                                   {v.toLocaleString()}
