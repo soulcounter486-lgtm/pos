@@ -34,6 +34,7 @@ export default function StaffPos() {
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'transfer' | 'mixed'>('cash');
   const [cashReceivedStr, setCashReceivedStr] = useState<string>('');
   const [discountStr, setDiscountStr] = useState<string>('0');
+  const [discountMode, setDiscountMode] = useState<'amount' | 'percent'>('amount');
   const [dataLoaded, setDataLoaded] = useState(false);
   // 완료 주문 수량 로컬 편집 (주문하기 클릭 전까지 DB 미반영)
   const [localQtyEdits, setLocalQtyEdits] = useState<Record<string, number>>({});
@@ -1186,8 +1187,12 @@ export default function StaffPos() {
     });
     subtotal = Math.round(subtotal);
     taxAmount = Math.round(taxAmount);
-    const discount = Math.max(0, parseInt(discountStr.replace(/[^\d]/g, '') || '0', 10) || 0);
-    const payable = Math.max(0, subtotal + taxAmount - discount);
+    const discountInput = Math.max(0, parseInt(discountStr.replace(/[^\d]/g, '') || '0', 10) || 0);
+    const grossBeforeDiscount = subtotal + taxAmount;
+    const discount = discountMode === 'percent'
+      ? Math.round(grossBeforeDiscount * Math.min(100, discountInput) / 100)
+      : Math.min(discountInput, grossBeforeDiscount);
+    const payable = Math.max(0, grossBeforeDiscount - discount);
     const cashReceived = parseInt(cashReceivedStr.replace(/[^\d]/g, '') || '0', 10) || 0;
     const change = cashReceived - payable;
     const hasBankInfo = settings.bank_name || settings.account_number;
@@ -1202,6 +1207,7 @@ export default function StaffPos() {
       setPayMethod('cash');
       setCashReceivedStr('');
       setDiscountStr('0');
+      setDiscountMode('amount');
     };
 
     const handlePay = () => {
@@ -1214,6 +1220,7 @@ export default function StaffPos() {
       setPayMethod('cash');
       setCashReceivedStr('');
       setDiscountStr('0');
+      setDiscountMode('amount');
     };
 
     const methods: Array<{ key: 'cash' | 'card' | 'transfer' | 'mixed'; icon: string; name: string }> = [
@@ -1307,21 +1314,37 @@ export default function StaffPos() {
                       <span className="text-sm text-[#111827]">{subtotal.toLocaleString()}</span>
                     </div>
                     <div className="border-t border-dashed border-gray-200" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-sm text-gray-600">할인 (Giảm giá)</span>
                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </div>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={discountStr}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^\d]/g, '');
-                          setDiscountStr(v ? parseInt(v, 10).toLocaleString() : '0');
-                        }}
-                        className="w-28 text-right text-sm text-[#111827] bg-transparent outline-none focus:bg-blue-50 rounded px-1"
-                      />
+                      <div className="flex items-center gap-1.5 flex-1 justify-end">
+                        <div className="inline-flex bg-gray-100 rounded-md p-0.5 text-[11px] font-bold">
+                          <button onClick={() => { setDiscountMode('amount'); setDiscountStr('0'); }}
+                            className={'px-2 py-0.5 rounded ' + (discountMode === 'amount' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500')}>₫</button>
+                          <button onClick={() => { setDiscountMode('percent'); setDiscountStr('0'); }}
+                            className={'px-2 py-0.5 rounded ' + (discountMode === 'percent' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500')}>%</button>
+                        </div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={discountStr}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, '');
+                            if (discountMode === 'percent') {
+                              const n = Math.min(100, parseInt(raw || '0', 10) || 0);
+                              setDiscountStr(String(n));
+                            } else {
+                              setDiscountStr(raw ? parseInt(raw, 10).toLocaleString() : '0');
+                            }
+                          }}
+                          className="w-24 text-right text-sm text-[#111827] bg-transparent outline-none focus:bg-blue-50 rounded px-1"
+                        />
+                        {discountMode === 'percent' && discount > 0 && (
+                          <span className="text-[11px] text-gray-400">(-{discount.toLocaleString()})</span>
+                        )}
+                      </div>
                     </div>
                     <div className="border-t border-dashed border-gray-200" />
                     <div className="flex items-center justify-between">
