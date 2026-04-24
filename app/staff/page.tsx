@@ -50,8 +50,8 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+    <div className="h-screen flex flex-col bg-gray-900 overflow-hidden">
+      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div>
@@ -73,7 +73,9 @@ export default function StaffPage() {
           </div>
         </div>
       </header>
-      <StaffPos />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <StaffPos />
+      </div>
     </div>
   );
 }

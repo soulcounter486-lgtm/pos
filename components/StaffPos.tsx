@@ -827,7 +827,7 @@ export default function StaffPos() {
 
   function renderSplitOrdersPanel() {
     return (
-      <aside className="hidden lg:flex lg:flex-col lg:w-96 xl:w-[420px] lg:h-screen lg:sticky lg:top-0 border-l border-gray-200 bg-white overflow-hidden flex-shrink-0">
+      <aside className="hidden lg:flex lg:flex-col lg:w-96 xl:w-[420px] lg:h-full border-l border-gray-200 bg-white overflow-hidden flex-shrink-0">
         {!selectedTable ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
             <div className="text-5xl mb-4">👈</div>
@@ -1045,8 +1045,8 @@ export default function StaffPos() {
     }, 0);
 
     return (
-      <div className={'min-h-screen bg-[#F8F9FA] flex flex-col ' + (pcSplit ? 'lg:flex-row' : '')}>
-      <div className={'flex flex-col ' + (pcSplit ? 'lg:flex-1 lg:min-h-screen lg:max-h-screen lg:overflow-y-auto' : 'flex-1')}>
+      <div className={'min-h-screen bg-[#F8F9FA] flex flex-col ' + (pcSplit ? 'lg:flex-row lg:h-full lg:min-h-0 lg:overflow-hidden' : '')}>
+      <div className={'flex flex-col ' + (pcSplit ? 'lg:flex-1 lg:h-full lg:min-h-0 lg:overflow-y-auto' : 'flex-1')}>
         <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -1833,9 +1833,9 @@ export default function StaffPos() {
 
   // ==================== 메뉴 주문 (반응형: PC 좌우분할 / 모바일 단일) ====================
   return (
-    <div className="min-h-screen bg-[#F8F9FA] lg:flex lg:flex-row">
+    <div className="min-h-screen lg:h-full lg:min-h-0 lg:overflow-hidden bg-[#F8F9FA] lg:flex lg:flex-row">
       {/* ===== 왼쪽: 상품 영역 ===== */}
-      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0">
+      <div className="flex-1 flex flex-col min-h-screen lg:h-full lg:min-h-0 lg:overflow-y-auto">
         <header className="bg-white border-b border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 shadow-sm">
           <div className="flex items-center justify-between mb-2 lg:mb-3">
             <div className="flex items-center gap-2 lg:gap-3">
