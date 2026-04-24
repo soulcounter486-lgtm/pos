@@ -58,6 +58,8 @@ export default function StaffPos() {
   };
   const [showHistory, setShowHistory] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyTableFilter, setHistoryTableFilter] = useState<string | null>(null);
+  const [historyTick, setHistoryTick] = useState(0); // 패널 열 때 강제 리렌더용
   function getOrderHistory(): HistoryEntry[] {
     try { return JSON.parse(localStorage.getItem('pos_order_history') || '[]'); } catch { return []; }
   }
@@ -69,6 +71,85 @@ export default function StaffPos() {
   function formatHistoryTime(iso: string) {
     const d = new Date(iso);
     return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  function renderHistoryPanel() {
+    if (!showHistory) return null;
+    void historyTick; // 패널 열 때 강제 재읽기
+    const allEntries = getOrderHistory();
+    const entries = historyTableFilter ? allEntries.filter(e => String(e.tableNumber) === String(historyTableFilter)) : allEntries;
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowHistory(false)} />
+        <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col">
+          <div className="bg-[#1F2937] px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-base font-bold">📋 주문 히스토리</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{historyTableFilter ? `Table ${historyTableFilter}만 표시` : '전체 · 최신순 · 최대 100건'}</p>
+            </div>
+            <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+          </div>
+          {selectedTable && (
+            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex gap-2 flex-shrink-0">
+              <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); }}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === selectedTable ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                Table {selectedTable}만
+              </button>
+              <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); }}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === null ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                전체
+              </button>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto">
+            {entries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
+                <span className="text-4xl mb-3">📭</span>
+                <p className="text-sm">{historyTableFilter ? `Table ${historyTableFilter} 주문 내역이 없습니다` : '주문 내역이 없습니다'}</p>
+              </div>
+            ) : (
+              entries.map((entry) => (
+                <div key={entry.id} className="border-b border-gray-100">
+                  <button
+                    onClick={() => setExpandedHistoryId(expandedHistoryId === entry.id ? null : entry.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">Table {entry.tableNumber}</span>
+                        {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">추가 서비스</span>}
+                        <span className="text-[10px] text-gray-400">{formatHistoryTime(entry.timestamp)}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{entry.items.map(i => i.name + ' ×' + i.quantity).join(', ')}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{expandedHistoryId === entry.id ? '▲' : '▼'}</p>
+                    </div>
+                  </button>
+                  {expandedHistoryId === entry.id && (
+                    <div className="px-4 pb-3 bg-gray-50">
+                      {entry.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
+                          <div>
+                            <p className="text-xs font-medium text-gray-700">{item.name}</p>
+                            <p className="text-[10px] text-gray-400">단가 {item.unitPrice.toLocaleString()} VND × {item.quantity}</p>
+                          </div>
+                          <p className="text-xs font-bold text-gray-700">{item.totalPrice.toLocaleString()} VND</p>
+                        </div>
+                      ))}
+                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
+                        <p className="text-xs font-bold text-gray-700">합계</p>
+                        <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </>
+    );
   }
 
   // 합석 기능
@@ -731,7 +812,7 @@ export default function StaffPos() {
               <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowHistory(true)}
+              <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
                 className="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white border border-blue-200 text-blue-600 hover:bg-blue-50">
                 📋 히스토리
               </button>
@@ -993,68 +1074,7 @@ export default function StaffPos() {
           </div>
         )}
 
-        {/* 주문 히스토리 사이드 패널 */}
-        {showHistory && (
-          <>
-            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowHistory(false)} />
-            <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col">
-              <div className="bg-[#1F2937] px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
-                <div>
-                  <h2 className="text-base font-bold">📋 주문 히스토리</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">최신순 · 최대 100건</p>
-                </div>
-                <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {getOrderHistory().length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
-                    <span className="text-4xl mb-3">📭</span>
-                    <p className="text-sm">주문 내역이 없습니다</p>
-                  </div>
-                ) : (
-                  getOrderHistory().map((entry) => (
-                    <div key={entry.id} className="border-b border-gray-100">
-                      <button
-                        onClick={() => setExpandedHistoryId(expandedHistoryId === entry.id ? null : entry.id)}
-                        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">Table {entry.tableNumber}</span>
-                            {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">추가 서비스</span>}
-                            <span className="text-[10px] text-gray-400">{formatHistoryTime(entry.timestamp)}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 truncate">{entry.items.map(i => i.name + ' ×' + i.quantity).join(', ')}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-3">
-                          <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{expandedHistoryId === entry.id ? '▲' : '▼'}</p>
-                        </div>
-                      </button>
-                      {expandedHistoryId === entry.id && (
-                        <div className="px-4 pb-3 bg-gray-50">
-                          {entry.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                              <div>
-                                <p className="text-xs font-medium text-gray-700">{item.name}</p>
-                                <p className="text-[10px] text-gray-400">단가 {item.unitPrice.toLocaleString()} VND × {item.quantity}</p>
-                              </div>
-                              <p className="text-xs font-bold text-gray-700">{item.totalPrice.toLocaleString()} VND</p>
-                            </div>
-                          ))}
-                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
-                            <p className="text-xs font-bold text-gray-700">합계</p>
-                            <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        )}
+        {renderHistoryPanel()}
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
@@ -1285,10 +1305,16 @@ export default function StaffPos() {
                 <p className="text-xs text-gray-400">주문내역 {tableOrders.length}건</p>
               </div>
             </div>
-            <button onClick={() => deleteAllOrdersForTable(selectedTableUuid!)} disabled={tableOrders.length === 0 || loading}
-              className="text-xs text-red-400 hover:text-red-500 disabled:opacity-40 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-              전체삭제
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200">
+                📋 히스토리
+              </button>
+              <button onClick={() => deleteAllOrdersForTable(selectedTableUuid!)} disabled={tableOrders.length === 0 || loading}
+                className="text-xs text-red-400 hover:text-red-500 disabled:opacity-40 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                전체삭제
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1637,6 +1663,8 @@ export default function StaffPos() {
           localPriceEdits={localPriceEdits}
           localItemPriceEdits={localItemPriceEdits}
         />
+
+        {renderHistoryPanel()}
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
