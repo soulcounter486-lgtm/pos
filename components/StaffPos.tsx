@@ -815,9 +815,138 @@ export default function StaffPos() {
     );
   }
 
+  // ==================== PC 분할 레이아웃 공통 데이터 + 우측 패널 ====================
+  const pcSplit = isPC; // PC면 항상 분할 레이아웃 (Mode 1/2 모두)
+  const splitTableUuid = selectedTable ? tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id : null;
+  const splitTableOrders = splitTableUuid ? allOrders.filter(o => String(o.table_id) === String(splitTableUuid) && (o.status === 'pending' || o.status === 'completed')) : [];
+  const splitPending = splitTableOrders.filter(o => o.status === 'pending');
+  const splitCompleted = splitTableOrders.filter(o => o.status === 'completed');
+  const computeSplitOrderTotal = (order: OrderData) => allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
+    const isCompleted = order.status === 'completed';
+    const up = isCompleted
+      ? (localItemPriceEdits[item.id] !== undefined
+          ? localItemPriceEdits[item.id]
+          : (localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price))))
+      : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
+    return s + up * item.quantity;
+  }, 0);
+  const splitPendingTotal = splitPending.reduce((s, o) => s + computeSplitOrderTotal(o), 0);
+  const splitCompletedTotal = splitCompleted.reduce((s, o) => s + computeSplitOrderTotal(o), 0);
+  const splitTotal = splitPendingTotal + splitCompletedTotal;
+
+  function renderSplitOrdersPanel() {
+    return (
+      <aside className="hidden lg:flex lg:flex-col lg:w-96 xl:w-[420px] lg:min-h-screen lg:max-h-screen border-l border-gray-200 bg-white overflow-hidden flex-shrink-0">
+        {!selectedTable ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
+            <div className="text-5xl mb-4">👈</div>
+            <p className="text-base font-semibold text-gray-500">테이블을 선택하세요</p>
+            <p className="text-xs text-gray-400 mt-2">선택 시 주문 내역이 여기에 표시됩니다</p>
+          </div>
+        ) : (
+          <>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {splitTableOrders.length === 0 ? '주문 없음' : `${splitTableOrders.length}건 · ${Math.round(splitTotal).toLocaleString()} VND`}
+                </p>
+              </div>
+              <button onClick={goBack} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded">✕ 해제</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {splitPending.length > 0 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 flex items-center justify-between border-b border-amber-100">
+                    <span className="text-xs font-bold text-amber-700">🔔 주방 대기 ({splitPending.length}건)</span>
+                    <span className="text-xs font-bold text-amber-600">{Math.round(splitPendingTotal).toLocaleString()} VND</span>
+                  </div>
+                  <div className="p-2 space-y-1.5">
+                    {splitPending.map(order => {
+                      const items = allOrderItems.filter(i => i.order_id === order.id);
+                      return (
+                        <div key={order.id} className="bg-white rounded-lg p-2 text-xs">
+                          {items.map(item => {
+                            const product = products.find(p => p.id === item.product_id);
+                            return <div key={item.id} className="flex justify-between"><span className="truncate">{product?.name || '상품'} × {item.quantity}</span><span className="text-gray-500 ml-2 shrink-0">{item.price.toLocaleString()}</span></div>;
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {splitCompleted.length > 0 && (
+                <div className="bg-green-50 border border-green-100 rounded-xl overflow-hidden">
+                  <div className="px-3 py-2 flex items-center justify-between border-b border-green-100">
+                    <span className="text-xs font-bold text-green-700">✅ 조리 완료 ({splitCompleted.length}건)</span>
+                    <span className="text-xs font-bold text-green-600">{Math.round(splitCompletedTotal).toLocaleString()} VND</span>
+                  </div>
+                  <div className="p-2 space-y-1.5">
+                    {splitCompleted.map(order => {
+                      const items = allOrderItems.filter(i => i.order_id === order.id);
+                      return (
+                        <div key={order.id} className="bg-white rounded-lg p-2 text-xs">
+                          {items.map(item => {
+                            const product = products.find(p => p.id === item.product_id);
+                            const up = (localItemPriceEdits[item.id] !== undefined)
+                              ? localItemPriceEdits[item.id]
+                              : (localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price)));
+                            return <div key={item.id} className="flex justify-between"><span className="truncate">{product?.name || '상품'} × {item.quantity}</span><span className="text-gray-500 ml-2 shrink-0">{Math.round(up * item.quantity).toLocaleString()}</span></div>;
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {splitTableOrders.length === 0 && (
+                <div className="text-center py-12 text-gray-300 text-sm">아직 주문이 없습니다</div>
+              )}
+            </div>
+            <div className="border-t border-gray-100 p-3 grid grid-cols-2 gap-2">
+              {currentView !== 'menu' && (
+                <button onClick={() => navigateTo('menu')}
+                  className="col-span-2 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold shadow">
+                  ➕ 메뉴 추가 / 주문하기
+                </button>
+              )}
+              <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
+                disabled={splitTableOrders.length === 0}
+                className="py-2.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 text-xs font-semibold text-gray-700">
+                📋 히스토리
+              </button>
+              <button onClick={() => setShowReceiptModal(true)}
+                disabled={splitTableOrders.length === 0}
+                className="py-2.5 rounded-xl bg-white border border-amber-200 hover:bg-amber-50 disabled:opacity-40 text-xs font-semibold text-amber-700">
+                🧾 가영수증
+              </button>
+              <button onClick={() => { setPendingOrders(splitTableOrders); setShowPaymentModal(true); }}
+                disabled={splitTableOrders.length === 0}
+                className="col-span-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold shadow">
+                💳 결제하기 ({Math.round(splitTotal).toLocaleString()} VND)
+              </button>
+            </div>
+          </>
+        )}
+      </aside>
+    );
+  }
+
+  function renderModeToggle() {
+    return (
+      <button onClick={() => setDesktopMode(m => m === 'split' ? 'classic' : 'split')}
+        className={'hidden lg:inline-flex px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
+          (desktopMode === 'split'
+            ? 'bg-blue-500 text-white shadow-md'
+            : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50')}>
+        {desktopMode === 'split' ? '🖥 모드1 (선택만)' : '🖱 모드2 (메뉴이동)'}
+      </button>
+    );
+  }
+
   // ==================== 테이블 선택 ====================
-  const pcSplit = isPC && desktopMode === 'split';
-  if ((!selectedTable || (pcSplit && currentView !== 'menu')) && currentView !== 'merged-orders') {
+  if ((!selectedTable || (pcSplit && desktopMode === 'split' && currentView !== 'menu')) && currentView !== 'merged-orders') {
     // 합석 모드에서 선택된 테이블들의 총 금액 계산
     const mergedGrandTotal = mergedTables.reduce((sum, ts) => {
       const tableUuid = tables.find(t => t.name.replace(/\D/g, '') === ts)?.id;
@@ -826,27 +955,9 @@ export default function StaffPos() {
       return sum + orders.reduce((s, o) => s + (o.total_amount !== undefined ? o.total_amount : o.total), 0);
     }, 0);
 
-    // PC 분할 모드: 우측 패널용 데이터 계산 (가격 수정과 합계 단일 소스)
-    const splitTableUuid = selectedTable ? tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id : null;
-    const splitTableOrders = splitTableUuid ? allOrders.filter(o => String(o.table_id) === String(splitTableUuid) && (o.status === 'pending' || o.status === 'completed')) : [];
-    const splitPending = splitTableOrders.filter(o => o.status === 'pending');
-    const splitCompleted = splitTableOrders.filter(o => o.status === 'completed');
-    const computeSplitOrderTotal = (order: OrderData) => allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
-      const isCompleted = order.status === 'completed';
-      const up = isCompleted
-        ? (localItemPriceEdits[item.id] !== undefined
-            ? localItemPriceEdits[item.id]
-            : (localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price))))
-        : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
-      return s + up * item.quantity;
-    }, 0);
-    const splitPendingTotal = splitPending.reduce((s, o) => s + computeSplitOrderTotal(o), 0);
-    const splitCompletedTotal = splitCompleted.reduce((s, o) => s + computeSplitOrderTotal(o), 0);
-    const splitTotal = splitPendingTotal + splitCompletedTotal;
-
     return (
       <div className={'min-h-screen bg-[#F8F9FA] flex flex-col ' + (pcSplit ? 'lg:flex-row' : '')}>
-      <div className={'flex flex-col ' + (pcSplit ? 'lg:w-3/5 lg:min-h-screen lg:max-h-screen lg:overflow-y-auto' : 'flex-1')}>
+      <div className={'flex flex-col ' + (pcSplit ? 'lg:flex-1 lg:min-h-screen lg:max-h-screen lg:overflow-y-auto' : 'flex-1')}>
         <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -854,15 +965,7 @@ export default function StaffPos() {
               <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
             </div>
             <div className="flex items-center gap-2">
-              {isPC && (
-                <button onClick={() => setDesktopMode(m => m === 'split' ? 'classic' : 'split')}
-                  className={'hidden lg:inline-flex px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
-                    (desktopMode === 'split'
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50')}>
-                  {desktopMode === 'split' ? '🖥 분할(모드1)' : '🖱 클래식(모드2)'}
-                </button>
-              )}
+              {renderModeToggle()}
               <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
                 className="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white border border-blue-200 text-blue-600 hover:bg-blue-50">
                 📋 히스토리
@@ -922,13 +1025,15 @@ export default function StaffPos() {
               const pendingCount = tableOrders.filter(o => o.status === 'pending').length;
               const isMergeSelected = mergedTables.includes(ts);
 
-              // 합석 모드: 토글 / PC 분할 모드: 하이라이트만 / 그 외: 기존 동작
+              // 합석 모드: 토글 / 모드1(PC): 하이라이트만 / 모드2(PC): 메뉴로 / 모바일: 기존
               const handleClick = isMergeMode
                 ? () => toggleMergeTable(ts)
                 : (isPC && desktopMode === 'split')
                   ? () => setSelectedTable(ts.replace(/\D/g, ''))
-                  : () => selectTable(ts, tableOrders.length > 0 ? 'orders' : 'menu');
-              const isSplitSelected = isPC && desktopMode === 'split' && !isMergeMode && selectedTable === ts.replace(/\D/g, '');
+                  : (isPC && desktopMode === 'classic')
+                    ? () => selectTable(ts, 'menu')
+                    : () => selectTable(ts, tableOrders.length > 0 ? 'orders' : 'menu');
+              const isSplitSelected = isPC && !isMergeMode && selectedTable === ts.replace(/\D/g, '');
 
               return (
                 <button key={table.id} onClick={handleClick}
@@ -978,100 +1083,7 @@ export default function StaffPos() {
           </div>
         </main>
       </div>
-      {pcSplit && (
-        <aside className="hidden lg:flex lg:flex-col lg:w-2/5 lg:min-h-screen lg:max-h-screen border-l border-gray-200 bg-white overflow-hidden">
-          {!selectedTable ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
-              <div className="text-5xl mb-4">👈</div>
-              <p className="text-base font-semibold text-gray-500">테이블을 선택하세요</p>
-              <p className="text-xs text-gray-400 mt-2">선택 시 주문 내역이 여기에 표시됩니다</p>
-            </div>
-          ) : (
-            <>
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {splitTableOrders.length === 0 ? '주문 없음' : `${splitTableOrders.length}건 · ${splitTotal.toLocaleString()} VND`}
-                  </p>
-                </div>
-                <button onClick={() => setSelectedTable(null)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded">✕ 해제</button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {splitPending.length > 0 && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
-                    <div className="px-3 py-2 flex items-center justify-between border-b border-amber-100">
-                      <span className="text-xs font-bold text-amber-700">🔔 주방 대기 ({splitPending.length}건)</span>
-                      <span className="text-xs font-bold text-amber-600">{Math.round(splitPendingTotal).toLocaleString()} VND</span>
-                    </div>
-                    <div className="p-2 space-y-1.5">
-                      {splitPending.map(order => {
-                        const items = allOrderItems.filter(i => i.order_id === order.id);
-                        return (
-                          <div key={order.id} className="bg-white rounded-lg p-2 text-xs">
-                            {items.map(item => {
-                              const product = products.find(p => p.id === item.product_id);
-                              return <div key={item.id} className="flex justify-between"><span className="truncate">{product?.name || '상품'} × {item.quantity}</span><span className="text-gray-500 ml-2 shrink-0">{(item.price).toLocaleString()}</span></div>;
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {splitCompleted.length > 0 && (
-                  <div className="bg-green-50 border border-green-100 rounded-xl overflow-hidden">
-                    <div className="px-3 py-2 flex items-center justify-between border-b border-green-100">
-                      <span className="text-xs font-bold text-green-700">✅ 조리 완료 ({splitCompleted.length}건)</span>
-                      <span className="text-xs font-bold text-green-600">{Math.round(splitCompletedTotal).toLocaleString()} VND</span>
-                    </div>
-                    <div className="p-2 space-y-1.5">
-                      {splitCompleted.map(order => {
-                        const items = allOrderItems.filter(i => i.order_id === order.id);
-                        return (
-                          <div key={order.id} className="bg-white rounded-lg p-2 text-xs">
-                            {items.map(item => {
-                              const product = products.find(p => p.id === item.product_id);
-                              const up = (localItemPriceEdits[item.id] !== undefined)
-                                ? localItemPriceEdits[item.id]
-                                : (localPriceEdits[item.product_id] !== undefined ? localPriceEdits[item.product_id] : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price)));
-                              return <div key={item.id} className="flex justify-between"><span className="truncate">{product?.name || '상품'} × {item.quantity}</span><span className="text-gray-500 ml-2 shrink-0">{(up * item.quantity).toLocaleString()}</span></div>;
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {splitTableOrders.length === 0 && (
-                  <div className="text-center py-12 text-gray-300 text-sm">아직 주문이 없습니다</div>
-                )}
-              </div>
-              <div className="border-t border-gray-100 p-3 grid grid-cols-2 gap-2">
-                <button onClick={() => navigateTo('menu')}
-                  className="col-span-2 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold shadow">
-                  ➕ 메뉴 추가 / 주문하기
-                </button>
-                <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
-                  disabled={splitTableOrders.length === 0}
-                  className="py-2.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 text-xs font-semibold text-gray-700">
-                  📋 히스토리
-                </button>
-                <button onClick={() => setShowReceiptModal(true)}
-                  disabled={splitTableOrders.length === 0}
-                  className="py-2.5 rounded-xl bg-white border border-amber-200 hover:bg-amber-50 disabled:opacity-40 text-xs font-semibold text-amber-700">
-                  🧾 가영수증
-                </button>
-                <button onClick={() => { setPendingOrders(splitTableOrders); setShowPaymentModal(true); }}
-                  disabled={splitTableOrders.length === 0}
-                  className="col-span-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold shadow">
-                  💳 결제하기 ({splitTotal.toLocaleString()} VND)
-                </button>
-              </div>
-            </>
-          )}
-        </aside>
-      )}
+      {pcSplit && renderSplitOrdersPanel()}
       {pcSplit && selectedTable && (
         <ReceiptModal
           isOpen={showReceiptModal}
@@ -1849,9 +1861,12 @@ export default function StaffPos() {
               </button>
               <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
             </div>
-            <button onClick={() => navigateTo('orders')} className="text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
-              주문내역
-            </button>
+            <div className="flex items-center gap-2">
+              {renderModeToggle()}
+              <button onClick={() => navigateTo('orders')} className={'text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors ' + (pcSplit ? 'lg:hidden' : '')}>
+                주문내역
+              </button>
+            </div>
           </div>
           <div className="mb-2 lg:mb-3">
             <input type="text" placeholder="검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
@@ -2054,6 +2069,21 @@ export default function StaffPos() {
         </div>
       </div>
 
+      {pcSplit && renderSplitOrdersPanel()}
+      {pcSplit && selectedTable && (
+        <ReceiptModal
+          isOpen={showReceiptModal}
+          onClose={() => setShowReceiptModal(false)}
+          orders={splitTableOrders}
+          orderItems={allOrderItems}
+          products={products}
+          tableNumber={selectedTable}
+          settings={settings}
+          localPriceEdits={localPriceEdits}
+          localItemPriceEdits={localItemPriceEdits}
+        />
+      )}
+      {renderHistoryPanel()}
       {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
     </div>
   );
