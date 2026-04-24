@@ -5,6 +5,7 @@ A Point of Sale (POS) application for restaurants built with Next.js 14, Tailwin
 ## Features
 
 - **Staff POS** (`/staff`): Table selection, product browsing by category, cart management, order submission, payment processing (현금/카드/계좌이체)
+  - **PC layout (lg+)**: Toggle between Mode 1 (split: 60% table grid + 40% right orders panel, click table = highlight only) and Mode 2 (classic: click table → menu screen). Persisted in `localStorage.pos_desktop_mode`. Mobile uses single-view flow unchanged.
 - **합석 기능**: Multi-table merge mode — view combined orders and process a single merged payment
 - **가영수증**: Pre-payment receipt popup with itemized list, totals, and QR code for bank transfer
 - **Kitchen Display** (`/kitchen`): Real-time order queue with Supabase Realtime subscriptions and audio notifications
