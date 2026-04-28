@@ -85,7 +85,57 @@ export default function StaffPos() {
   function renderHistoryPanel() {
     if (!showHistory) return null;
     void historyTick; // 패널 열 때 강제 재읽기
-    const allEntries = getOrderHistory();
+    const localEntries = getOrderHistory();
+    const dbEntries: HistoryEntry[] = allOrders
+      .filter(o => o.status === 'pending' || o.status === 'completed')
+      .map((order) => {
+        const tableName = tables.find(t => String(t.id) === String(order.table_id))?.name || '';
+        const tableNumber = tableName.replace(/\D/g, '') || String(order.table_id).slice(0, 6);
+        const items = allOrderItems
+          .filter(i => i.order_id === order.id)
+          .map(i => {
+            const p = products.find(pr => pr.id === i.product_id);
+            const unitPrice = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price);
+            return {
+              name: p?.name || t('common.product'),
+              quantity: i.quantity,
+              unitPrice,
+              totalPrice: unitPrice * i.quantity,
+            };
+          });
+        const totalAmount = items.reduce((sum, it) => sum + it.totalPrice, 0);
+        return {
+          id: `db_${order.id}`,
+          timestamp: order.created_at || new Date().toISOString(),
+          tableNumber,
+          items,
+          totalAmount,
+          type: 'order' as const,
+        };
+      });
+    const normalizeName = (v: string) => String(v || '').normalize('NFKC').trim().toLowerCase();
+    const toSec = (iso: string) => {
+      const ts = new Date(iso).getTime();
+      return Number.isFinite(ts) ? Math.floor(ts / 1000) : 0;
+    };
+    const entryFingerprint = (e: HistoryEntry) => {
+      const itemsSig = [...(e.items || [])]
+        .map(i => `${normalizeName(i.name)}:${Number(i.quantity || 0)}`)
+        .sort()
+        .join('|');
+      return `${String(e.tableNumber).trim()}::${toSec(e.timestamp)}::${itemsSig}`;
+    };
+
+    // Prefer DB records when duplicated with local history records.
+    const dedupedMap = new Map<string, HistoryEntry>();
+    [...dbEntries, ...localEntries].forEach((entry) => {
+      const key = entryFingerprint(entry);
+      if (!dedupedMap.has(key)) dedupedMap.set(key, entry);
+    });
+    const allEntries = Array.from(dedupedMap.values()).sort((a, b) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
     const entries = historyTableFilter ? allEntries.filter(e => String(e.tableNumber) === String(historyTableFilter)) : allEntries;
     return (
       <>
@@ -94,7 +144,9 @@ export default function StaffPos() {
           <div className="bg-[#1F2937] px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
             <div>
               <h2 className="text-base font-bold">{'📋 ' + t('common.history')}</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{historyTableFilter ? `${t('common.table_label')} ${historyTableFilter} ${t('common.only_display')}` : t('common.history_summary')}</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {historyTableFilter ? t('common.history_filter', { table: historyTableFilter }) : t('common.history_summary')}
+              </p>
             </div>
             <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
           </div>
@@ -102,7 +154,7 @@ export default function StaffPos() {
             <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex gap-2 flex-shrink-0">
               <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); }}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === selectedTable ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                Table {selectedTable}{t('common.only')}
+                {t('common.history_filter', { table: selectedTable })}
               </button>
               <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); }}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === null ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
@@ -114,7 +166,9 @@ export default function StaffPos() {
             {entries.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
                 <span className="text-4xl mb-3">📭</span>
-                <p className="text-sm">{historyTableFilter ? `Table ${historyTableFilter} ` + t('common.no_orders_status_text') : t('common.no_orders_status_text')}</p>
+                <p className="text-sm">
+                  {historyTableFilter ? t('common.no_history_filtered', { table: historyTableFilter }) : t('common.no_orders_status_text')}
+                </p>
               </div>
             ) : (
               entries.map((entry) => (
@@ -125,14 +179,13 @@ export default function StaffPos() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">Table {entry.tableNumber}</span>
+                        <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">{t('common.table')} {entry.tableNumber}</span>
                         {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">{t('common.additional_service')}</span>}
                         <span className="text-[10px] text-gray-400">{formatHistoryTime(entry.timestamp)}</span>
                       </div>
                       <p className="text-xs text-gray-500 truncate">{entry.items.map(i => i.name + ' ×' + i.quantity).join(', ')}</p>
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
-                      <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
                       <p className="text-[10px] text-gray-400 mt-0.5">{expandedHistoryId === entry.id ? '▲' : '▼'}</p>
                     </div>
                   </button>
@@ -142,15 +195,10 @@ export default function StaffPos() {
                         <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
                           <div>
                             <p className="text-xs font-medium text-gray-700">{item.name}</p>
-                            <p className="text-[10px] text-gray-400">단가 {item.unitPrice.toLocaleString()} VND × {item.quantity}</p>
+                            <p className="text-[10px] text-gray-400">수량 × {item.quantity}</p>
                           </div>
-                          <p className="text-xs font-bold text-gray-700">{item.totalPrice.toLocaleString()} VND</p>
                         </div>
                       ))}
-                      <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
-                        <p className="text-xs font-bold text-gray-700">합계</p>
-                        <p className="text-sm font-bold text-blue-600">{entry.totalAmount.toLocaleString()} VND</p>
-                      </div>
                     </div>
                   )}
                 </div>

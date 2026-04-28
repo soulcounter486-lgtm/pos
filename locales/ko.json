@@ -167,6 +167,8 @@
     "select_table_prompt": "테이블을 선택하세요",
     "select_table_hint": "선택 시 주문 내역이 여기에 표시됩니다",
     "order_count_unit": "건",
+    "pending_orders": "대기 주문",
+    "order_history_label": "주문내역",
     "edit_qty_then_order": "{editQty} 후 {orderNow}",
     "history_btn": "히스토리",
     "음식": "음식",

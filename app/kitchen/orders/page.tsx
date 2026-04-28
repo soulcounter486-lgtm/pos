@@ -33,7 +33,10 @@ function playNotificationSound() {
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => playNotificationSound()).catch(() => {});
+      return;
+    }
 
     const master = ctx.createGain();
     master.gain.value = 0.9;
@@ -87,24 +90,27 @@ export default function KitchenOrders() {
    const [notification, setNotification] = useState<{ show: boolean; tableId: string; orderId: string; type?: string } | null>(null);
    const fetchOrdersRef = useRef<(silent?: boolean) => Promise<void>>();
    const audioEnabledRef = useRef(false);
+  const prevPendingCountRef = useRef<number | null>(null);
+  const lastAlertAtRef = useRef<number>(0);
 
-   // Sound ON state persistence + ref synchronization
+  // Keep ref synchronized with current state (storage writes are explicit on toggle only)
    useEffect(() => {
      audioEnabledRef.current = audioEnabled;
-     try { localStorage.setItem('kitchen_audio_enabled', audioEnabled ? '1' : '0'); } catch {}
    }, [audioEnabled]);
 
    // Initialize audioEnabled from localStorage on client only
    useEffect(() => {
      if (typeof window !== 'undefined') {
        try {
-         const stored = localStorage.getItem('kitchen_audio_enabled');
+        const stored = localStorage.getItem('kitchen_audio_enabled') ?? sessionStorage.getItem('kitchen_audio_enabled');
          if (stored !== null) {
-           setAudioEnabled(stored === '1');
+          const enabled = stored === '1';
+          setAudioEnabled(enabled);
+          audioEnabledRef.current = enabled;
          }
        } catch (e) {
          console.warn('Failed to read audio setting from localStorage:', e);
-       }
+      }
      }
    }, []);
 
@@ -208,7 +214,22 @@ export default function KitchenOrders() {
         supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
       ]);
-      setCounts({ pending: pendingCnt ?? 0, completed: completedCnt ?? 0 });
+      const nextPending = pendingCnt ?? 0;
+      const prevPending = prevPendingCountRef.current;
+      setCounts({ pending: nextPending, completed: completedCnt ?? 0 });
+
+      // Fallback alert path: when pending count increases (polling or missed realtime),
+      // trigger a single alert so kitchen still hears new orders.
+      if (prevPending !== null && nextPending > prevPending) {
+        const now = Date.now();
+        if (now - lastAlertAtRef.current > 2000) {
+          if (audioEnabledRef.current) playNotificationSound();
+          setNotification({ show: true, tableId: '', orderId: '', type: 'new' });
+          setTimeout(() => setNotification(null), 5000);
+          lastAlertAtRef.current = now;
+        }
+      }
+      prevPendingCountRef.current = nextPending;
 
       const [ordersResult, itemsResult, tablesResult, productsResult] = await Promise.all([
         supabase.from('orders').select('*').eq('status', currentTab).order('created_at', { ascending: false }),
@@ -364,6 +385,10 @@ export default function KitchenOrders() {
                 const next = !audioEnabled;
                 setAudioEnabled(next);
                 audioEnabledRef.current = next;
+                try {
+                  localStorage.setItem('kitchen_audio_enabled', next ? '1' : '0');
+                  sessionStorage.setItem('kitchen_audio_enabled', next ? '1' : '0');
+                } catch {}
                 if (next) playNotificationSound();
               }}
               className={`px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${audioEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
