@@ -2,31 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
-
-type Product = {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  barcode?: string;
-  stock: number;
-  image_url?: string;
-  tax_rate?: number;  // Added for tax management
-};
-
-type Category = {
-  id: string;
-  name: string;
-  tax_rate?: number;  // Added for tax management
-};
-
-type Table = {
-  id: number;
-  name: string;
-  status: 'available' | 'occupied';
-};
+import { useLanguage } from '@/components/LanguageProvider';
+import type { Product, Category, Table } from '@/types';
 
 export default function ProductAdmin() {
+  const { t, locale } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -45,16 +25,23 @@ export default function ProductAdmin() {
   const [categoryForm, setCategoryForm] = useState({
     id: '',
     name: '',
-    tax_rate: 0.1, // Default 10% tax
+    tax_rate: 0.1,
   });
   const [tableForm, setTableForm] = useState({
-    id: 0,
+    id: '',
     name: '',
     status: 'available' as 'available' | 'occupied',
   });
   const [message, setMessage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // locale이 변경될 때 데이터 다시 불러오기
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+    fetchTables();
+  }, [locale]);
 
   useEffect(() => {
     fetchProducts();
@@ -68,7 +55,7 @@ export default function ProductAdmin() {
     const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
     setLoading(false);
     if (error) {
-      setMessage('상품 목록을 불러오지 못했습니다.');
+      setMessage(t('common.failedLoadProducts'));
       return;
     }
     setProducts(data || []);
@@ -80,7 +67,7 @@ export default function ProductAdmin() {
     const { data, error } = await supabase.from('categories').select('*').order('name');
     setLoading(false);
     if (error) {
-      setMessage('카테고리 목록을 불러오지 못했습니다.');
+      setMessage(t('common.failedLoadCategories'));
       return;
     }
     setCategories(data || []);
@@ -92,22 +79,22 @@ export default function ProductAdmin() {
     const { data, error } = await supabase.from('tables').select('*').order('id');
     setLoading(false);
     if (error) {
-      setMessage('테이블 목록을 불러오지 못했습니다.');
+      setMessage(t('common.failedLoadTables'));
       return;
     }
     setTables(data || []);
     if (!data || data.length === 0) {
-      setMessage('등록된 테이블이 없습니다.');
+      setMessage(t('common.noTables'));
     }
   }
 
   function resetProductForm() {
-    setProductForm({ 
-      id: '', 
-      name: '', 
-      category: '', 
-      price: 0, 
-      barcode: '', 
+    setProductForm({
+      id: '',
+      name: '',
+      category: '',
+      price: 0,
+      barcode: '',
       stock: 0,
       image_url: '',
       tax_rate: undefined,
@@ -122,7 +109,7 @@ export default function ProductAdmin() {
   }
 
   function resetTableForm() {
-    setTableForm({ id: 0, name: '', status: 'available' });
+    setTableForm({ id: '', name: '', status: 'available' });
     setMessage(null);
   }
 
@@ -131,7 +118,7 @@ export default function ProductAdmin() {
     if (!file) return;
 
     setImageFile(file);
-    setMessage(`이미지 선택됨: ${file.name}`);
+    setMessage(t('common.selectedImage', { name: file.name }));
   }
 
   async function handleProductSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -139,37 +126,37 @@ export default function ProductAdmin() {
     setMessage(null);
 
     if (!productForm.name || !productForm.category || productForm.price <= 0 || productForm.stock < 0) {
-      setMessage('상품명, 카테고리, 가격, 재고를 정확히 입력해주세요.');
+      setMessage(t('common.fillRequired'));
       return;
     }
 
     setLoading(true);
-    
+
     let imageUrl = productForm.image_url;
     if (imageFile) {
       const supabase = getSupabase();
-      
+
       const fileExtension = imageFile.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExtension}`;
-      
+
       const { data, error: uploadError } = await supabase
         .storage
         .from('products')
-        .upload(fileName, imageFile, { 
-          cacheControl: '3600', 
+        .upload(fileName, imageFile, {
+          cacheControl: '3600',
           upsert: false,
         });
 
       if (uploadError) {
         setLoading(false);
-        setMessage('이미지 업로드 실패: ' + uploadError.message);
+        setMessage(t('common.imageUploadError') + ': ' + uploadError.message);
         return;
       }
 
       const { data: urlData } = supabase.storage
         .from('products')
         .getPublicUrl(fileName);
-      
+
       imageUrl = urlData.publicUrl;
     }
 
@@ -189,19 +176,19 @@ export default function ProductAdmin() {
       setLoading(false);
       if (error) {
         console.error('Update error:', error);
-        setMessage('상품 수정 중 오류가 발생했습니다: ' + error.message);
+        setMessage(t('common.productUpdateError', { msg: error.message }));
         return;
       }
-      setMessage('상품이 수정되었습니다.');
+      setMessage(t('common.productUpdated'));
     } else {
       const { error } = await supabase.from('products').insert(payload);
       setLoading(false);
       if (error) {
         console.error('Insert error:', error);
-        setMessage('상품 등록 중 오류가 발생했습니다: ' + error.message);
+        setMessage(t('common.productAddError', { msg: error.message }));
         return;
       }
-      setMessage('상품이 등록되었습니다.');
+      setMessage(t('common.productAdded'));
     }
 
     resetProductForm();
@@ -214,7 +201,7 @@ export default function ProductAdmin() {
     setMessage(null);
 
     if (!categoryForm.name) {
-      setMessage('카테고리 이름을 입력해주세요.');
+      setMessage(t('common.enterCategoryName'));
       return;
     }
 
@@ -226,19 +213,17 @@ export default function ProductAdmin() {
     };
 
     if (categoryForm.id) {
-      // Update existing category
       const { error } = await supabase
         .from('categories')
         .update(payload)
         .eq('id', categoryForm.id);
       setLoading(false);
       if (error) {
-        setMessage('카테고리 수정 중 오류가 발생했습니다.');
+        setMessage(t('common.categoryUpdateError'));
         return;
       }
-      setMessage('카테고리가 수정되었습니다.');
+      setMessage(t('common.categoryUpdated'));
 
-      // Update all products in this category
       const { error: productUpdateError } = await supabase
         .from('products')
         .update({ tax_rate: categoryForm.tax_rate || 0.1 })
@@ -250,59 +235,64 @@ export default function ProductAdmin() {
         console.log(`Updated all products in category "${categoryForm.name}" to tax_rate ${categoryForm.tax_rate || 0.1}`);
       }
     } else {
-      // Insert new category
       const { error } = await supabase.from('categories').insert(payload);
       setLoading(false);
       if (error) {
-        setMessage('카테고리 등록 중 오류가 발생했습니다.');
+        setMessage(t('common.categoryAddError'));
         return;
       }
-      setMessage('카테고리가 등록되었습니다.');
+      setMessage(t('common.categoryAdded'));
     }
 
     resetCategoryForm();
     fetchCategories();
-    fetchProducts(); // Refresh product list to show updated tax rates
+    fetchProducts();
   }
 
-  async function handleTableSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage(null);
+   async function handleTableSubmit(event: React.FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     setMessage(null);
 
-    if (!tableForm.name) {
-      setMessage('테이블 이름을 입력해주세요.');
-      return;
-    }
+     if (!tableForm.name) {
+       setMessage(t('common.enterTableName'));
+       return;
+     }
 
-    setLoading(true);
-    const supabase = getSupabase();
-    const payload = {
-      id: tableForm.id,
-      name: tableForm.name,
-      status: tableForm.status,
-    };
+     setLoading(true);
+     const supabase = getSupabase();
 
-    if (tableForm.id) {
-      const { error } = await supabase.from('tables').update(payload).eq('id', tableForm.id);
-      setLoading(false);
-      if (error) {
-        setMessage('테이블 수정 중 오류가 발생했습니다.');
-        return;
-      }
-      setMessage('테이블이 수정되었습니다.');
-    } else {
-      const { error } = await supabase.from('tables').insert(payload);
-      setLoading(false);
-      if (error) {
-        setMessage('테이블 등록 중 오류가 발생했습니다.');
-        return;
-      }
-      setMessage('테이블이 등록되었습니다.');
-    }
+     if (tableForm.id) {
+       // Update existing table
+       const payload = {
+         id: tableForm.id,
+         name: tableForm.name,
+         status: tableForm.status,
+       };
+       const { error } = await supabase.from('tables').update(payload).eq('id', tableForm.id);
+       setLoading(false);
+       if (error) {
+         setMessage(t('common.tableUpdateError'));
+         return;
+       }
+       setMessage(t('common.tableUpdated'));
+     } else {
+       // Insert new table (id will be generated by DB)
+       const payload = {
+         name: tableForm.name,
+         status: tableForm.status,
+       };
+       const { error } = await supabase.from('tables').insert(payload);
+       setLoading(false);
+       if (error) {
+         setMessage(t('common.tableAddError'));
+         return;
+       }
+       setMessage(t('common.tableAdded'));
+     }
 
-    resetTableForm();
-    fetchTables();
-  }
+     resetTableForm();
+     fetchTables();
+   }
 
   async function handleProductDelete(id: string) {
     setLoading(true);
@@ -310,10 +300,10 @@ export default function ProductAdmin() {
     const { error } = await supabase.from('products').delete().eq('id', id);
     setLoading(false);
     if (error) {
-      setMessage('상품 삭제 중 오류가 발생했습니다.');
+      setMessage(t('common.productDeleteError'));
       return;
     }
-    setMessage('상품이 삭제되었습니다.');
+    setMessage(t('common.productDeleted'));
     fetchProducts();
   }
 
@@ -323,23 +313,23 @@ export default function ProductAdmin() {
     const { error } = await supabase.from('categories').delete().eq('id', id);
     setLoading(false);
     if (error) {
-      setMessage('카테고리 삭제 중 오류가 발생했습니다.');
+      setMessage(t('common.categoryDeleteError'));
       return;
     }
-    setMessage('카테고리가 삭제되었습니다.');
+    setMessage(t('common.categoryDeleted'));
     fetchCategories();
   }
 
-  async function handleTableDelete(id: number) {
+  async function handleTableDelete(id: string) {
     setLoading(true);
     const supabase = getSupabase();
     const { error } = await supabase.from('tables').delete().eq('id', id);
     setLoading(false);
     if (error) {
-      setMessage('테이블 삭제 중 오류가 발생했습니다.');
+      setMessage(t('common.tableDeleteError'));
       return;
     }
-    setMessage('테이블이 삭제되었습니다.');
+    setMessage(t('common.tableDeleted'));
     fetchTables();
   }
 
@@ -355,17 +345,17 @@ export default function ProductAdmin() {
       tax_rate: product.tax_rate,
     });
     setImageFile(null);
-    setMessage('편집 모드입니다. 저장하면 수정됩니다.');
+    setMessage(t('common.editModeActive'));
     setIsModalOpen(true);
   }
 
   function handleCategoryEdit(category: Category) {
-    setCategoryForm({ 
+    setCategoryForm({
       id: category.id,
-      name: category.name, 
-      tax_rate: category.tax_rate ?? 0
+      name: category.name,
+      tax_rate: category.tax_rate ?? 0,
     });
-    setMessage('편집 모드입니다. 저장하면 수정됩니다.');
+    setMessage(t('common.editModeActive'));
   }
 
   function handleTableEdit(table: Table) {
@@ -374,7 +364,7 @@ export default function ProductAdmin() {
       name: table.name,
       status: table.status,
     });
-    setMessage('편집 모드입니다. 저장하면 수정됩니다.');
+    setMessage(t('common.editModeActive'));
   }
 
   const stockSummary = useMemo(() => {
@@ -383,7 +373,7 @@ export default function ProductAdmin() {
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, Category>();
-    categories.forEach(cat => map.set(cat.name, cat));
+    categories.forEach((cat) => map.set(cat.name, cat));
     return map;
   }, [categories]);
 
@@ -395,7 +385,7 @@ export default function ProductAdmin() {
     if (category && category.tax_rate !== undefined && category.tax_rate !== null) {
       return `${(category.tax_rate * 100).toFixed(1)}%`;
     }
-    return '기본';
+    return t('common.defaultTax');
   };
 
   return (
@@ -405,19 +395,19 @@ export default function ProductAdmin() {
           className={`px-4 py-2 text-sm font-medium ${activeTab === 'products' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
           onClick={() => setActiveTab('products')}
         >
-          상품 관리
+          {t('common.productManagement')}
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === 'categories' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
           onClick={() => setActiveTab('categories')}
         >
-          카테고리 관리
+          {t('common.categoryManagement')}
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium ${activeTab === 'tables' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
           onClick={() => setActiveTab('tables')}
         >
-          테이블 관리
+          {t('common.tableManagement')}
         </button>
       </div>
 
@@ -425,33 +415,35 @@ export default function ProductAdmin() {
         <section className="card">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">상품 관리</h2>
-              <p className="mt-2 text-slate-600">상품 정보를 등록하거나 기존 상품을 수정 및 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.productManagement')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.manage_products_desc')}</p>
             </div>
             <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-              전체 재고: {stockSummary}개
+              {t('common.totalStock', { count: stockSummary })}
             </div>
           </div>
 
           <div className="mt-6">
-            <button 
+            <button
               onClick={() => {
                 resetProductForm();
                 setIsModalOpen(true);
               }}
               className="button-primary"
             >
-              상품 등록
+              {t('common.addProduct')}
             </button>
           </div>
 
           {isModalOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-                <h3 className="text-lg font-semibold mb-4">상품 등록</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  {productForm.id ? t('common.editProduct') : t('common.addProduct')}
+                </h3>
                 <form onSubmit={handleProductSubmit} className="grid gap-4">
                   <label className="field-label">
-                    상품명
+                    {t('common.productName')}
                     <input
                       className="input-base mt-2"
                       value={productForm.name}
@@ -460,14 +452,14 @@ export default function ProductAdmin() {
                     />
                   </label>
                   <label className="field-label">
-                    카테고리
+                    {t('common.category')}
                     <select
                       className="input-base mt-2"
                       value={productForm.category}
                       onChange={(event) => setProductForm({ ...productForm, category: event.target.value })}
                       required
                     >
-                      <option value="">카테고리 선택</option>
+                      <option value="">{t('common.selectCategory')}</option>
                       {categories.map((category) => (
                         <option key={category.id} value={category.name}>
                           {category.name}
@@ -476,7 +468,7 @@ export default function ProductAdmin() {
                     </select>
                   </label>
                   <label className="field-label">
-                    가격
+                    {t('common.price')}
                     <input
                       className="input-base mt-2"
                       type="number"
@@ -489,7 +481,7 @@ export default function ProductAdmin() {
                     />
                   </label>
                   <label className="field-label">
-                    재고 수량
+                    {t('common.stockQty')}
                     <input
                       className="input-base mt-2"
                       type="number"
@@ -501,7 +493,7 @@ export default function ProductAdmin() {
                     />
                   </label>
                   <label className="field-label">
-                    바코드 (선택)
+                    {t('common.barcodeOptional')}
                     <input
                       className="input-base mt-2"
                       value={productForm.barcode}
@@ -509,7 +501,7 @@ export default function ProductAdmin() {
                     />
                   </label>
                   <label className="field-label">
-                    부가세율 (%) (선택)
+                    {t('common.taxRateOptional')}
                     <input
                       className="input-base mt-2"
                       type="number"
@@ -517,20 +509,20 @@ export default function ProductAdmin() {
                       max="100"
                       step="0.1"
                       value={productForm.tax_rate !== undefined ? productForm.tax_rate * 100 : ''}
-                      placeholder="카테고리 기본값 사용"
-                      onChange={(event) => setProductForm({ 
-                        ...productForm, 
-                        tax_rate: event.target.value === '' ? undefined : Number(event.target.value) / 100 
+                      placeholder={t('common.useCategoryDefault')}
+                      onChange={(event) => setProductForm({
+                        ...productForm,
+                        tax_rate: event.target.value === '' ? undefined : Number(event.target.value) / 100,
                       })}
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      {productForm.tax_rate !== undefined 
-                        ? `개별 설정: ${(productForm.tax_rate * 100).toFixed(1)}%` 
-                        : '카테고리 기본 부가세율 사용'}
+                      {productForm.tax_rate !== undefined
+                        ? t('common.individualSetting', { rate: (productForm.tax_rate * 100).toFixed(1) })
+                        : t('common.useCategoryDefaultTax')}
                     </p>
                   </label>
                   <label className="field-label">
-                    이미지 (선택)
+                    {t('common.imageOptional')}
                     <div className="mt-2">
                       <input
                         type="file"
@@ -543,15 +535,15 @@ export default function ProductAdmin() {
                           file:bg-slate-100 file:text-slate-700
                           hover:file:bg-slate-200"
                       />
-                      {imageFile && <p className="mt-2 text-sm text-slate-600">선택됨: {imageFile.name}</p>}
+                      {imageFile && <p className="mt-2 text-sm text-slate-600">{t('common.selectedImage', { name: imageFile.name })}</p>}
                     </div>
                   </label>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <button className="button-primary" type="submit" disabled={loading}>
-                      등록
+                      {productForm.id ? t('common.edit') : t('common.add')}
                     </button>
                     <button type="button" className="button-secondary" onClick={() => setIsModalOpen(false)}>
-                      취소
+                      {t('common.cancel')}
                     </button>
                   </div>
                   {message ? <p className="text-sm text-slate-700">{message}</p> : null}
@@ -559,20 +551,19 @@ export default function ProductAdmin() {
               </div>
             </div>
           )}
-
         </section>
       ) : activeTab === 'categories' ? (
         <section className="card">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">카테고리 관리</h2>
-              <p className="mt-2 text-slate-600">카테고리를 등록하거나 기존 카테고리를 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.categoryManagement')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.manage_categories_desc')}</p>
             </div>
           </div>
 
           <form onSubmit={handleCategorySubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
             <label className="field-label">
-              카테고리 이름
+              {t('common.categoryName')}
               <input
                 className="input-base mt-2"
                 value={categoryForm.name}
@@ -581,7 +572,7 @@ export default function ProductAdmin() {
               />
             </label>
             <label className="field-label">
-              부가세율 (%)
+              {t('common.taxRate')}
               <input
                 className="input-base mt-2"
                 type="number"
@@ -592,21 +583,24 @@ export default function ProductAdmin() {
                 placeholder=""
                 onChange={(event) => setCategoryForm({
                   ...categoryForm,
-                  tax_rate: event.target.value === '' ? 0 : Number(event.target.value) / 100
+                  tax_rate: event.target.value === '' ? 0 : Number(event.target.value) / 100,
                 })}
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-                현재: {(categoryForm.tax_rate !== undefined ? categoryForm.tax_rate * 100 : 10).toFixed(1)}% ({(categoryForm.tax_rate !== undefined ? categoryForm.tax_rate : 0.1).toFixed(3)})
+                {t('common.currentRate', {
+                  rate: (categoryForm.tax_rate !== undefined ? categoryForm.tax_rate * 100 : 10).toFixed(1),
+                  raw: (categoryForm.tax_rate !== undefined ? categoryForm.tax_rate : 0.1).toFixed(3),
+                })}
               </p>
             </label>
 
             <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button className="button-primary" type="submit" disabled={loading}>
-                카테고리 등록
+                {categoryForm.id ? t('common.edit') : t('common.register')}
               </button>
               <button type="button" className="button-secondary" onClick={resetCategoryForm}>
-                초기화
+                {t('common.reset')}
               </button>
             </div>
             {message ? <p className="sm:col-span-2 text-sm text-slate-700">{message}</p> : null}
@@ -616,26 +610,25 @@ export default function ProductAdmin() {
         <section className="card">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">테이블 관리</h2>
-              <p className="mt-2 text-slate-600">테이블을 등록하거나 기존 테이블을 수정 및 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.tableManagement')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.manage_tables_desc')}</p>
             </div>
           </div>
 
           <form onSubmit={handleTableSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
             <label className="field-label">
-              테이블 번호
+              {t('common.tableNumber')}
               <input
                 className="input-base mt-2"
-                type="number"
-                min="1"
-                value={tableForm.id || ''}
+                type="text"
+                value={tableForm.id}
                 placeholder="1"
-                onChange={(event) => setTableForm({ ...tableForm, id: Number(event.target.value) || 0 })}
+                onChange={(event) => setTableForm({ ...tableForm, id: event.target.value })}
                 required
               />
             </label>
             <label className="field-label">
-              테이블 이름
+              {t('common.tableName')}
               <input
                 className="input-base mt-2"
                 value={tableForm.name}
@@ -644,23 +637,23 @@ export default function ProductAdmin() {
               />
             </label>
             <label className="field-label">
-              상태
+              {t('common.status')}
               <select
                 className="input-base mt-2"
                 value={tableForm.status}
                 onChange={(event) => setTableForm({ ...tableForm, status: event.target.value as any })}
               >
-                <option value="available">사용 가능</option>
-                <option value="occupied">사용 중</option>
+                <option value="available">{t('common.available')}</option>
+                <option value="occupied">{t('common.occupied')}</option>
               </select>
             </label>
 
             <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button className="button-primary" type="submit" disabled={loading}>
-                {tableForm.id ? '테이블 수정' : '테이블 등록'}
+                {tableForm.id ? t('common.editTable') : t('common.registerTable')}
               </button>
               <button type="button" className="button-secondary" onClick={resetTableForm}>
-                초기화
+                {t('common.reset')}
               </button>
             </div>
             {message ? <p className="sm:col-span-2 text-sm text-slate-700">{message}</p> : null}
@@ -672,28 +665,28 @@ export default function ProductAdmin() {
         <section className="card">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">상품 목록</h2>
-              <p className="mt-2 text-slate-600">등록된 상품을 조회하고 수정 또는 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.productList')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.viewProductsDesc')}</p>
             </div>
             <button className="button-secondary" onClick={fetchProducts}>
-              새로고침
+              {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">상품을 불러오는 중...</div>
+            <div className="text-center text-slate-600">{t('common.loadingProducts')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead>
                   <tr className="flex items-center p-1 border-b border-slate-200">
-                    <th className="w-[100px] px-2 py-1">사진</th>
-                    <th className="w-2/6 px-2 py-1">상품정보</th>
-                    <th className="w-1/6 px-2 py-1">카테고리</th>
-                    <th className="w-1/8 px-2 py-1">금액</th>
-                    <th className="w-1/8 px-2 py-1">부가세율</th>
-                    <th className="w-1/8 px-2 py-1">재고</th>
-                    <th className="w-32 px-2 py-1">작업</th>
+                    <th className="w-[100px] px-2 py-1">{t('common.photo')}</th>
+                    <th className="w-2/6 px-2 py-1">{t('common.productInfo')}</th>
+                    <th className="w-1/6 px-2 py-1">{t('common.category')}</th>
+                    <th className="w-1/8 px-2 py-1">{t('common.amount')}</th>
+                    <th className="w-1/8 px-2 py-1">{t('common.taxRate')}</th>
+                    <th className="w-1/8 px-2 py-1">{t('common.stock')}</th>
+                    <th className="w-32 px-2 py-1">{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -701,19 +694,19 @@ export default function ProductAdmin() {
                     <tr key={product.id} className="flex items-center h-24 p-1 border-b border-slate-200">
                       <td className="w-[140px] px-2 py-1">
                         {product.image_url ? (
-                          <img 
-                            src={product.image_url} 
+                          <img
+                            src={product.image_url}
                             alt={product.name}
-                            style={{ 
+                            style={{
                               width: '100%',
                               height: '140px',
                               objectFit: 'contain',
-                              borderRadius: '8px'
+                              borderRadius: '8px',
                             }}
                           />
                         ) : (
                           <div style={{ height: '140px' }} className="w-full bg-slate-200 rounded flex items-center justify-center text-slate-500">
-                            상품 없음
+                            {t('common.noProductImage')}
                           </div>
                         )}
                       </td>
@@ -729,7 +722,7 @@ export default function ProductAdmin() {
                       </td>
                       <td className="w-1/8 px-2 py-1">
                         <div className="flex flex-col justify-center h-full">
-                          <div className="text-xs text-slate-600">{product.price.toLocaleString()} VND</div>
+                           <div className="text-xs text-slate-600">{product.price.toLocaleString()} {t('common.currency')}</div>
                         </div>
                       </td>
                       <td className="w-1/8 px-2 py-1">
@@ -741,34 +734,34 @@ export default function ProductAdmin() {
                       </td>
                       <td className="w-1/8 px-2 py-1">
                         <div className="flex flex-col justify-center h-full">
-                          <div className="text-xs text-slate-600">재고: {product.stock}</div>
+                          <div className="text-xs text-slate-600">{t('common.stock')}: {product.stock}</div>
                         </div>
                       </td>
                       <td className="w-48 px-2 py-1 flex items-center justify-end">
                         <div className="flex gap-3 flex-row">
-                          <button 
+                          <button
                             className="button-secondary text-xs"
-                            style={{ 
-                              padding: '2px 8px', 
+                            style={{
+                              padding: '2px 8px',
                               minWidth: '60px',
                               height: '28px',
-                              fontSize: '11px'
+                              fontSize: '11px',
                             }}
                             onClick={() => handleProductEdit(product)}
                           >
-                            수정
+                            {t('common.edit')}
                           </button>
-                          <button 
+                          <button
                             className="button-secondary text-xs"
-                            style={{ 
-                              padding: '2px 8px', 
+                            style={{
+                              padding: '2px 8px',
                               minWidth: '60px',
                               height: '28px',
-                              fontSize: '11px'
+                              fontSize: '11px',
                             }}
                             onClick={() => handleProductDelete(product.id)}
                           >
-                            삭제
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>
@@ -783,24 +776,24 @@ export default function ProductAdmin() {
         <section className="card">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">카테고리 목록</h2>
-              <p className="mt-2 text-slate-600">등록된 카테고리를 조회하고 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.categoryList')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.viewCategoriesDesc')}</p>
             </div>
             <button className="button-secondary" onClick={fetchCategories}>
-              새로고침
+              {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">카테고리 불러오는 중...</div>
+            <div className="text-center text-slate-600">{t('common.loadingCategories')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead>
                   <tr>
-                    <th className="table-header px-4 py-3">카테고리 이름</th>
-                    <th className="table-header px-4 py-3">부가세율</th>
-                    <th className="table-header px-4 py-3">작업</th>
+                    <th className="table-header px-4 py-3">{t('common.categoryName')}</th>
+                    <th className="table-header px-4 py-3">{t('common.taxRate')}</th>
+                    <th className="table-header px-4 py-3">{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -812,10 +805,10 @@ export default function ProductAdmin() {
                       </td>
                       <td className="px-4 py-4 space-x-2">
                         <button className="button-secondary" onClick={() => handleCategoryEdit(category)}>
-                          수정
+                          {t('common.edit')}
                         </button>
                         <button className="button-secondary" onClick={() => handleCategoryDelete(category.id)}>
-                          삭제
+                          {t('common.delete')}
                         </button>
                       </td>
                     </tr>
@@ -829,25 +822,25 @@ export default function ProductAdmin() {
         <section className="card">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">테이블 목록</h2>
-              <p className="mt-2 text-slate-600">등록된 테이블을 조회하고 수정 또는 삭제할 수 있습니다.</p>
+              <h2 className="text-2xl font-semibold text-slate-900">{t('common.tableList')}</h2>
+              <p className="mt-2 text-slate-600">{t('common.viewTablesDesc')}</p>
             </div>
             <button className="button-secondary" onClick={fetchTables}>
-              새로고침
+              {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">테이블을 불러오는 중...</div>
+            <div className="text-center text-slate-600">{t('common.loadingTables')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead>
                   <tr>
-                    <th className="table-header px-4 py-3">번호</th>
-                    <th className="table-header px-4 py-3">이름</th>
-                    <th className="table-header px-4 py-3">상태</th>
-                    <th className="table-header px-4 py-3">작업</th>
+                    <th className="table-header px-4 py-3">{t('common.number')}</th>
+                    <th className="table-header px-4 py-3">{t('common.tableName')}</th>
+                    <th className="table-header px-4 py-3">{t('common.status')}</th>
+                    <th className="table-header px-4 py-3">{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -857,15 +850,15 @@ export default function ProductAdmin() {
                       <td className="px-4 py-4 text-slate-600">{table.name}</td>
                       <td className="px-4 py-4 text-slate-600">
                         <span className={`px-2 py-1 rounded text-xs ${table.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {table.status === 'available' ? '사용 가능' : '사용 중'}
+                          {table.status === 'available' ? t('common.available') : t('common.occupied')}
                         </span>
                       </td>
                       <td className="px-4 py-4 space-x-2">
                         <button className="button-secondary" onClick={() => handleTableEdit(table)}>
-                          수정
+                          {t('common.edit')}
                         </button>
                         <button className="button-secondary" onClick={() => handleTableDelete(table.id)}>
-                          삭제
+                          {t('common.delete')}
                         </button>
                       </td>
                     </tr>

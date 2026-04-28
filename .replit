@@ -39,9 +39,4 @@ expertMode = true
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-  [[mcp_servers]]
-  name = "filesystem-with-morph"
-  command = "npx"
-  args = ["-y", "@morphllm/morphmcp"]
   

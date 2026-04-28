@@ -5,13 +5,17 @@ import { useRouter } from 'next/navigation';
 import { clearAuth, getAuth } from '@/lib/auth';
 import StaffPos from '@/components/StaffPos';
 import { getSupabase } from '@/lib/supabaseClient';
+import { useLanguage } from '@/components/LanguageProvider';
+import { Locale } from '@/lib/i18n';
+import LanguageSelector from '@/components/LanguageSelector';
 
 export default function StaffPage() {
   const router = useRouter();
+  const { t, locale } = useLanguage();
   const [userId, setUserId] = useState('');
   const [now, setNow] = useState('');
   const [loading, setLoading] = useState(true);
-  const [headerText, setHeaderText] = useState('POS 시스템');
+  const [headerText, setHeaderText] = useState('');
 
   useEffect(() => {
     const { role, userId: uid } = getAuth();
@@ -22,19 +26,16 @@ export default function StaffPage() {
     setUserId(uid || '');
     setLoading(false);
 
-    // 실시간 시계
-    const tick = () => setNow(new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
+    // Real-time clock
+    const tick = () => setNow(new Date().toLocaleString(locale === 'ko' ? 'ko-KR' : locale === 'vi' ? 'vi-VN' : 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }));
     tick();
     const timer = setInterval(tick, 60000);
 
-    // 설정 불러오기
-    const supabase = getSupabase();
-    supabase.from('settings').select('staff_header_text').eq('id', 'default').single().then(({ data }) => {
-      if (data?.staff_header_text) setHeaderText(data.staff_header_text);
-    });
+    // Header text: always use i18n translation
+    setHeaderText(t('common.staff_pos'));
 
     return () => clearInterval(timer);
-  }, [router]);
+  }, [router, locale, t]);
 
   function handleLogout() {
     clearAuth();
@@ -51,24 +52,25 @@ export default function StaffPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-900 overflow-hidden">
-      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div>
-              <h1 className="text-white font-semibold text-lg whitespace-pre-line">{headerText}</h1>
-              <p className="text-gray-400 text-sm">직원 모드</p>
+      <header className="bg-gray-800 border-b border-gray-700 px-3 py-2 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="min-w-0">
+              <h1 className="text-white font-semibold text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">{headerText}</h1>
+              <p className="text-gray-400 text-[10px] md:text-xs">{t('common.staff_mode')}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-white text-sm">직원: {userId}</p>
-              <p className="text-gray-400 text-xs">{now}</p>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <LanguageSelector />
+            <div className="text-right hidden sm:block">
+              <p className="text-white text-xs">{t('common.staff')}: {userId}</p>
+              <p className="text-gray-400 text-[10px]">{now}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded-lg text-[10px] md:text-sm font-medium transition-colors flex-shrink-0"
             >
-              로그아웃
+              {t('common.logout')}
             </button>
           </div>
         </div>

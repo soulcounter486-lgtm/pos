@@ -3,38 +3,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabaseClient';
-
-type OrderItem = {
-  id: string;
-  order_id: string;
-  product_id: string;
-  quantity: number;
-  price: number;
-  note?: string;
-  product_name?: string;
-  product_image_url?: string;
-  category?: string;
-  status?: string;
-};
-
-type Order = {
-  id: string;
-  table_id: string;
-  table_name?: string;
-  total: number;
-  status: string;
-  created_at: string;
-  order_items: OrderItem[];
-};
+import { useLanguage } from '@/components/LanguageProvider';
+import LanguageSelector from '@/components/LanguageSelector';
+import type { Order, OrderItem } from '@/types';
 
 type Tab = 'pending' | 'completed';
 
-// Safari 등 구형 브라우저의 webkitAudioContext 타입 확장
+// Safari and older browsers webkitAudioContext type extension
 interface WindowWithWebkit extends Window {
   webkitAudioContext?: typeof AudioContext;
 }
 
-// 공유 AudioContext (브라우저 자동재생 정책: 사용자 제스처 후 unlock 필요)
+// Shared AudioContext (browser autoplay policy: unlock required after user gesture)
 let sharedAudioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
   try {
@@ -48,7 +28,7 @@ function getAudioCtx(): AudioContext | null {
   } catch { return null; }
 }
 
-// Web Audio API로 알림 소리 재생 — 시끄러운 주방용: 사이렌 패턴, 사각파, 큰 음량 1.5초
+// Play notification sound with Web Audio API — for noisy kitchen: siren pattern, square wave, loud volume 1.5 seconds
 function playNotificationSound() {
   try {
     const ctx = getAudioCtx();
@@ -59,7 +39,7 @@ function playNotificationSound() {
     master.gain.value = 0.9;
     master.connect(ctx.destination);
 
-    // 사각파 + 부저 톤(900Hz / 1300Hz 교차)을 빠르게 4회 반복 — 멀리서도 잘 들림
+    // Square wave + buzzer tone (900Hz / 1300Hz alternating) repeated quickly 4 times — can be heard from far away
     const tone = (freq: number, start: number, duration: number) => {
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
@@ -67,7 +47,7 @@ function playNotificationSound() {
       osc1.type = 'square';
       osc2.type = 'square';
       osc1.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      osc2.frequency.setValueAtTime(freq * 1.5, ctx.currentTime + start); // 5도 화음 — 더 날카롭게
+      osc2.frequency.setValueAtTime(freq * 1.5, ctx.currentTime + start); // 5th chord — sharper
       osc1.connect(g);
       osc2.connect(g);
       g.connect(master);
@@ -81,7 +61,7 @@ function playNotificationSound() {
       osc2.stop(ctx.currentTime + start + duration);
     };
 
-    // 사이렌 패턴: 낮음-높음 4세트 (총 1.6초)
+    // Siren pattern: low-high 4 sets (total 1.6 seconds)
     tone(900, 0.00, 0.18);
     tone(1300, 0.20, 0.18);
     tone(900, 0.42, 0.18);
@@ -95,6 +75,7 @@ function playNotificationSound() {
 }
 
 export default function KitchenOrders() {
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const activeTabRef = useRef<Tab>('pending');
@@ -107,7 +88,7 @@ export default function KitchenOrders() {
    const fetchOrdersRef = useRef<(silent?: boolean) => Promise<void>>();
    const audioEnabledRef = useRef(false);
 
-   // 소리 ON 상태 영구화 + ref 동기화
+   // Sound ON state persistence + ref synchronization
    useEffect(() => {
      audioEnabledRef.current = audioEnabled;
      try { localStorage.setItem('kitchen_audio_enabled', audioEnabled ? '1' : '0'); } catch {}
@@ -127,7 +108,7 @@ export default function KitchenOrders() {
      }
    }, []);
 
-  // 페이지 로드 시 소리 ON이면, 첫 사용자 제스처에 AudioContext 자동 unlock (브라우저 자동재생 정책)
+  // If sound is ON when page loads, automatically unlock AudioContext on first user gesture (browser autoplay policy)
   useEffect(() => {
     if (!audioEnabled) return;
     const unlock = () => {
@@ -167,18 +148,18 @@ export default function KitchenOrders() {
     }
   }, [router]);
 
-  // activeTab이 바뀔 때마다 ref 동기화 + 즉시 재조회
+  // Synchronize ref whenever activeTab changes + immediate refetch
   useEffect(() => {
     activeTabRef.current = activeTab;
     fetchOrders();
   }, [activeTab]);
 
-  // fetchOrders 최신 버전을 ref에 보관 (실시간 콜백 stale-closure 방지)
+  // Keep latest version of fetchOrders in ref (prevent stale-closure in real-time callbacks)
   useEffect(() => {
     fetchOrdersRef.current = fetchOrders;
   });
 
-  // 실시간 구독 (한 번만 설정, ref 통해 최신 fetchOrders 호출)
+  // Real-time subscription (set up once, call latest fetchOrders via ref)
   useEffect(() => {
     const supabase = getSupabase();
     const debounceTimer = { current: null as ReturnType<typeof setTimeout> | null };
@@ -210,7 +191,7 @@ export default function KitchenOrders() {
     };
   }, []);
 
-  // 5초 폴링 백업 (실시간 구독이 안 될 경우 대비)
+  // 5 second polling backup (in case real-time subscription fails)
   useEffect(() => {
     const interval = setInterval(() => { fetchOrdersRef.current?.(true); }, 5000);
     return () => clearInterval(interval);
@@ -222,7 +203,7 @@ export default function KitchenOrders() {
       const supabase = getSupabase();
       const currentTab = activeTabRef.current;
 
-      // 탭과 무관하게 전체 건수 파악 (헤더 카운터 정확성)
+      // Get total counts regardless of tab (header counter accuracy)
       const [{ count: pendingCnt }, { count: completedCnt }] = await Promise.all([
         supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
@@ -237,7 +218,7 @@ export default function KitchenOrders() {
       ]);
 
       if (ordersResult.error) {
-        setError('주문 조회 실패: ' + ordersResult.error.message);
+        setError(t('common.order_fetch_error') + ': ' + ordersResult.error.message);
         setLoading(false);
         return;
       }
@@ -281,7 +262,7 @@ export default function KitchenOrders() {
       if (!silent) setLoading(false);
     } catch (err) {
       if (!silent) {
-        setError('오류 발생: ' + err);
+        setError(t('common.error_occurred') + err);
         setLoading(false);
       }
     }
@@ -302,10 +283,10 @@ export default function KitchenOrders() {
     try {
       const supabase = getSupabase();
       const { error: updateError } = await supabase.from('orders').update({ status: 'completed' }).eq('id', orderId);
-      if (updateError) { alert('주문 상태 업데이트 실패'); return; }
+      if (updateError) { alert(t('common.order_status_update_failed')); return; }
       fetchOrders();
     } catch (error) {
-      alert('주문 완료 처리 중 오류가 발생했습니다.');
+      alert(t('common.order_completion_error'));
     }
   }
 
@@ -321,10 +302,15 @@ export default function KitchenOrders() {
 
   const pendingCount = counts.pending;
   const completedCount = counts.completed;
+  const formatTableLabel = (rawName: string | undefined, tableId: string) => {
+    if (!rawName) return `${t('common.table')} ${tableId.slice(0, 6)}…`;
+    const numeric = rawName.match(/\d+/)?.[0];
+    return numeric ? `${t('common.table')} ${numeric}` : rawName;
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* 새 주문 알림 팝업 */}
+      {/* New order notification popup */}
       {notification && notification.show && (
         <div className="fixed top-4 right-4 z-50 animate-fade-in">
           <div className={`text-white px-6 py-4 rounded-xl shadow-2xl max-w-sm ${
@@ -336,11 +322,11 @@ export default function KitchenOrders() {
                   <span className="text-xl">{notification.type === 'new' ? '🔔' : '✏️'}</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">{notification.type === 'new' ? '새 주문 도착!' : '주문 업데이트!'}</h3>
+                  <h3 className="font-bold text-lg">{notification.type === 'new' ? t('common.notification_new_order') : t('common.notification_order_update')}</h3>
                   <p className="text-sm opacity-90">
                     {notification.type === 'new'
-                      ? `테이블에서 새 주문이 들어왔습니다.`
-                      : `주문이 업데이트되었습니다.`}
+                      ? t('common.notification_new_order_description')
+                      : t('common.notification_order_update_description')}
                   </p>
                 </div>
               </div>
@@ -348,23 +334,31 @@ export default function KitchenOrders() {
             </div>
             <button onClick={() => { setActiveTab('pending'); setNotification(null); }}
               className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white py-2 rounded-lg text-sm font-medium transition-colors">
-              확인하기
+              {t('common.confirm_view')}
             </button>
           </div>
         </div>
       )}
 
-      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-white font-semibold text-lg">주방 주문 화면</h1>
-            <p className="text-gray-400 text-sm">주문 관리</p>
+      <header className="bg-gray-800 border-b border-gray-700 px-3 py-2">
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <h1 className="text-white font-semibold text-sm md:text-base whitespace-nowrap flex-shrink-0">
+              🍳 {t('common.kitchen_orders')}
+            </h1>
+            <div className="hidden sm:flex items-center gap-1 text-xs text-gray-300 flex-shrink-0">
+              <span>{t('common.pending')}: <span className="font-bold text-yellow-400">{pendingCount}</span></span>
+              <span className="text-gray-500 mx-0.5">|</span>
+              <span>{t('common.completed')}: <span className="font-bold text-green-400">{completedCount}</span></span>
+            </div>
+            <div className="sm:hidden flex items-center gap-0.5 text-[10px] text-gray-400 flex-shrink-0">
+              <span>{pendingCount}</span>
+              <span className="text-gray-500">|</span>
+              <span>{completedCount}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-white text-sm">
-              대기: <span className="font-bold text-yellow-400">{pendingCount}</span> | 완료: <span className="font-bold text-green-400">{completedCount}</span>
-            </span>
-            {/* 알림 소리 토글 */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <LanguageSelector />
             <button
               onClick={() => {
                 const next = !audioEnabled;
@@ -372,29 +366,30 @@ export default function KitchenOrders() {
                 audioEnabledRef.current = next;
                 if (next) playNotificationSound();
               }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${audioEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
-              title="알림 소리 켜기/끄기"
+              className={`px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${audioEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
+              title={t('common.sound_toggle')}
             >
-              {audioEnabled ? '🔔 소리 ON' : '🔕 소리 OFF'}
+              {audioEnabled ? t('common.audio_sound_on') : t('common.audio_sound_off')}
             </button>
             <button onClick={() => { localStorage.removeItem('auth'); router.push('/login-kitchen'); }}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-              로그아웃
+              className="bg-red-600 hover:bg-red-700 text-white px-1.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap flex-shrink-0"
+            >
+              {t('common.logout')}
             </button>
           </div>
         </div>
       </header>
 
-      {/* 탭 */}
+      {/* Tabs */}
       <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
         <div className="flex gap-2">
           <button onClick={() => setActiveTab('pending')}
             className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-            🕑 대기 중인 주문 ({pendingCount})
+            🕑 {t('common.orders_pending')} ({pendingCount})
           </button>
           <button onClick={() => setActiveTab('completed')}
             className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
-            ✅ 완료된 주문 ({completedCount})
+            ✅ {t('common.orders_completed')} ({completedCount})
           </button>
         </div>
       </div>
@@ -402,26 +397,26 @@ export default function KitchenOrders() {
       <main className="flex-1 p-6 overflow-y-auto">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
-            <p className="font-semibold">오류</p><p>{error}</p>
+            <p className="font-semibold">{t('common.error')}</p><p>{error}</p>
           </div>
         )}
 
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-white text-lg">로딩 중...</div>
+            <div className="text-white text-lg">{t('common.loading')}</div>
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">{activeTab === 'pending' ? '🕑' : '✅'}</div>
             <h2 className="text-2xl font-semibold text-white mb-2">
-              {activeTab === 'pending' ? '대기 중인 주문이 없습니다' : '완료된 주문이 없습니다'}
+              {activeTab === 'pending' ? t('common.no_pending_orders') : t('common.no_completed_orders')}
             </h2>
             <p className="text-gray-400 mb-4">
-              {activeTab === 'pending' ? '주문이 오면 여기에 표시됩니다' : '완료된 주문이 여기에 표시됩니다'}
+              {activeTab === 'pending' ? t('common.pending_orders_hint') : t('common.completed_orders_hint')}
             </p>
             {activeTab === 'completed' && (
               <button onClick={() => setActiveTab('pending')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                ↺ 대기 중인 주문 보기
+                {t('common.view_pending_orders')}
               </button>
             )}
           </div>
@@ -431,15 +426,15 @@ export default function KitchenOrders() {
               <div key={order.id} className="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
                 <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-blue-600' : 'bg-green-600'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-white font-bold text-lg">🏠 {order.table_name || `테이블 ${order.table_id.slice(0, 6)}…`}</h3>
+                    <h3 className="text-white font-bold text-lg">🏠 {formatTableLabel(order.table_name, order.table_id)}</h3>
                     <div className="text-right">
                       <span className={`text-sm px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-yellow-500 text-white animate-pulse' : 'bg-green-700 text-white'}`}>
-                        {order.status === 'pending' ? '대기 중...' : '완료'}
+                        {order.status === 'pending' ? t('common.pending_status') : t('common.completed_status')}
                       </span>
-                      <div className="text-white text-xs mt-1">{new Date(order.created_at).toLocaleTimeString('ko-KR')}</div>
+                      <div className="text-white text-xs mt-1">{new Date(order.created_at).toLocaleTimeString(locale === 'ko' ? 'ko-KR' : locale === 'vi' ? 'vi-VN' : 'en-US')}</div>
                     </div>
                   </div>
-                  <p className="text-white text-sm mt-1">📦 {order.order_items?.length || 0}개 항목</p>
+                  <p className="text-white text-sm mt-1">📦 {order.order_items?.length || 0}{t('common.items_count')}</p>
                 </div>
 
                 <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
@@ -451,26 +446,26 @@ export default function KitchenOrders() {
                         </div>
                       ) : (
                         <div className="w-20 h-20 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center">
-                          <span className="text-slate-400 text-xs">이미지 없음</span>
+                          <span className="text-slate-400 text-xs">{t('common.no_image')}</span>
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-white text-sm truncate mb-1">{item.product_name || 'Unknown'}</p>
-                        <p className="text-gray-400 text-xs mb-1">📂 {item.category || '미분류'}</p>
+                        <p className="text-gray-400 text-xs mb-1">📂 {item.category || t('common.uncategorized')}</p>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-blue-400 text-sm font-bold">× {item.quantity}개</p>
+                          <p className="text-blue-400 text-sm font-bold">× {item.quantity}{t('common.quantity_unit')}</p>
                         </div>
-                        {/* 메모 표시 */}
+                        {/* Note display */}
                         {item.note && (
                           <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg px-2 py-1 mt-1">
-                            <p className="text-yellow-300 text-xs">📝 {item.note}</p>
+                            <p className="text-yellow-300 text-xs">{t('common.note_symbol')} {item.note}</p>
                           </div>
                         )}
                       </div>
                       {item.status !== 'completed' ? (
                         <button onClick={() => markItemComplete(item.id, order.id)}
                           className='flex-shrink-0 self-center bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold'>
-                          ✅ 완료
+                          ✅ {t('common.mark_complete')}
                         </button>
                       ) : (
                         <span className='flex-shrink-0 self-center text-green-400 text-sm font-bold'>✅</span>

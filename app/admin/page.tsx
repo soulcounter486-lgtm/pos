@@ -1,21 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearAuth, getAuth } from '@/lib/auth';
 import ProductAdmin from '@/components/ProductAdmin';
 import SalesHistory from '@/components/SalesHistory';
 import AdminSettings from '@/components/AdminSettings';
-
-const tabs = [
-  { id: 'products', label: '상품 관리' },
-  { id: 'sales', label: '판매 내역' },
-  { id: 'settings', label: '설정' },
-];
+import { useLanguage } from '@/components/LanguageProvider';
+import LanguageSelector from '@/components/LanguageSelector';
 
 export default function AdminPage() {
+  const { t, locale } = useLanguage();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('products');
+  const tabs = useMemo(() => [
+    { id: 'products' as const, label: t('common.product') },
+    { id: 'sales' as const, label: t('common.sales_history') },
+    { id: 'settings' as const, label: t('common.settings') },
+  ], [t, locale]);
+  const [activeTab, setActiveTab] = useState<'products' | 'sales' | 'settings'>('products');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function AdminPage() {
     }
 
     verifyAdmin();
-  }, [router]);
+  }, [router, locale]); // Add locale to re-render when language changes
 
   function handleLogout() {
     clearAuth();
@@ -40,7 +42,7 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen bg-slate-50 py-16">
         <div className="container">
-          <div className="card text-center">관리자 권한 확인 중...</div>
+          <div className="card text-center">{t('common.loading')}</div>
         </div>
       </main>
     );
@@ -51,8 +53,8 @@ export default function AdminPage() {
       <div className="container">
         <div className="mb-8 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-soft sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-sky-600">관리자 대시보드</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">상품 관리 및 판매 내역</h1>
+            <p className="text-sm uppercase tracking-[0.24em] text-sky-600">{t('common.admin')} Dashboard</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">{t('common.product')} & {t('common.sales_history')}</h1>
           </div>
           <div className="flex flex-wrap gap-3">
             {tabs.map((tab) => (
@@ -68,8 +70,9 @@ export default function AdminPage() {
                 {tab.label}
               </button>
             ))}
+            <LanguageSelector />
             <button className="button-secondary" onClick={handleLogout}>
-              로그아웃
+              {t('common.logout')}
             </button>
           </div>
         </div>

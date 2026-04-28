@@ -10,7 +10,7 @@ export async function GET() {
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-  // settings 테이블 현재 컬럼 확인
+  // Check current columns of settings table
   const { data: existing, error: readErr } = await admin
     .from('settings')
     .select('*')
@@ -20,15 +20,15 @@ export async function GET() {
   const hasColumn = existing !== null && 'staff_header_text' in (existing || {});
   const columns = existing ? Object.keys(existing) : [];
 
-  // staff_header_text 컬럼이 없으면 upsert로 강제 추가 시도
-  // (PostgREST는 DDL 불가, 컬럼이 없으면 아래 upsert가 실패함)
+  // If staff_header_text column doesn't exist, try to force add via upsert
+  // (PostgREST cannot do DDL, if column doesn't exist, the upsert below will fail)
   let addResult: string | null = null;
   if (!hasColumn) {
     const { error: upsertErr } = await admin.from('settings').upsert({
       id: 'default',
       staff_header_text: '회사아이콘 pos 시스템',
     });
-    addResult = upsertErr ? `컬럼 추가 실패: ${upsertErr.message}` : '컬럼 추가 성공 또는 이미 존재';
+    addResult = upsertErr ? `Column addition failed: ${upsertErr.message}` : 'Column addition successful or already exists';
   }
 
   return NextResponse.json({

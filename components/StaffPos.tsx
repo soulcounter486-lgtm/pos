@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { QRCodeSVG } from 'qrcode.react';
 import ReceiptModal from '@/components/ReceiptModal';
+import { useLanguage } from '@/components/LanguageProvider';
 
 type Product = { id: string; name: string; category: string; price: number; barcode?: string; stock: number; image_url?: string; tax_rate?: number };
 type CartItem = Product & { quantity: number };
@@ -13,6 +14,7 @@ type OrderItemData = { id: string; order_id: string; product_id: string; quantit
 type Settings = { bank_name: string; account_number: string; account_holder: string; receipt_header: string; staff_header_text: string };
 
 export default function StaffPos() {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartMemos, setCartMemos] = useState<Record<string, string>>({});
@@ -91,8 +93,8 @@ export default function StaffPos() {
         <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col">
           <div className="bg-[#1F2937] px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-base font-bold">📋 주문 히스토리</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{historyTableFilter ? `Table ${historyTableFilter}만 표시` : '전체 · 최신순 · 최대 100건'}</p>
+              <h2 className="text-base font-bold">{'📋 ' + t('common.history')}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{historyTableFilter ? `${t('common.table_label')} ${historyTableFilter} ${t('common.only_display')}` : t('common.history_summary')}</p>
             </div>
             <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
           </div>
@@ -100,11 +102,11 @@ export default function StaffPos() {
             <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex gap-2 flex-shrink-0">
               <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); }}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === selectedTable ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                Table {selectedTable}만
+                Table {selectedTable}{t('common.only')}
               </button>
               <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); }}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${historyTableFilter === null ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                전체
+                {t('common.all')}
               </button>
             </div>
           )}
@@ -112,7 +114,7 @@ export default function StaffPos() {
             {entries.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
                 <span className="text-4xl mb-3">📭</span>
-                <p className="text-sm">{historyTableFilter ? `Table ${historyTableFilter} 주문 내역이 없습니다` : '주문 내역이 없습니다'}</p>
+                <p className="text-sm">{historyTableFilter ? `Table ${historyTableFilter} ` + t('common.no_orders_status_text') : t('common.no_orders_status_text')}</p>
               </div>
             ) : (
               entries.map((entry) => (
@@ -124,7 +126,7 @@ export default function StaffPos() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] font-bold bg-[#1F2937] text-white px-2 py-0.5 rounded">Table {entry.tableNumber}</span>
-                        {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">추가 서비스</span>}
+                        {entry.type === 'edit' && <span className="text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">{t('common.additional_service')}</span>}
                         <span className="text-[10px] text-gray-400">{formatHistoryTime(entry.timestamp)}</span>
                       </div>
                       <p className="text-xs text-gray-500 truncate">{entry.items.map(i => i.name + ' ×' + i.quantity).join(', ')}</p>
@@ -167,7 +169,7 @@ export default function StaffPos() {
   // 영수증 · 설정
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showTransferQR, setShowTransferQR] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: 'POS 레스토랑', staff_header_text: '회사아이콘 pos 시스템' });
+  const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: t('common.pos_restaurant'), staff_header_text: t('common.company_icon_pos') });
 
   // 뒤로가기 처리
   useEffect(() => {
@@ -250,8 +252,8 @@ export default function StaffPos() {
     try {
       const s = getSupabase();
       const { data } = await s.from('settings').select('*').eq('id', 'default').single();
-      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', receipt_header: data.receipt_header || 'POS 레스토랑', staff_header_text: data.staff_header_text || '회사아이콘 pos 시스템' });
-    } catch (e) { console.warn('설정 로드 실패 (settings 테이블 없음):', e); }
+      if (data) setSettings({ bank_name: data.bank_name || '', account_number: data.account_number || '', account_holder: data.account_holder || '', receipt_header: data.receipt_header || t('common.pos_restaurant'), staff_header_text: data.staff_header_text || t('common.company_icon_pos') });
+    } catch (e) { console.warn('Settings load failed: ', e); }
   }
 
   async function loadAllData() { await Promise.all([fetchProducts(), fetchTables(), fetchOrders(), fetchSettings()]); setDataLoaded(true); }
@@ -263,7 +265,7 @@ export default function StaffPos() {
       const { data, error } = await s.from('products').select('*').order('name');
       if (error) throw error;
       setProducts(data || []);
-    } catch (e) { setMessage('상품 목록을 불러오지 못했습니다.'); }
+    } catch (e) { setMessage(t('common.product_load_failed')); }
     setLoading(false);
   }
 
@@ -283,8 +285,8 @@ export default function StaffPos() {
       const s = getSupabase();
       const { data: orders, error: ordersError } = await s.from('orders').select('*').order('created_at', { ascending: false });
       const { data: items, error: itemsError } = await s.from('order_items').select('*');
-      if (ordersError) console.error('orders 조회 오류:', ordersError);
-      if (itemsError) console.error('order_items 조회 오류:', itemsError);
+      if (ordersError) console.error('orders ' + t('common.query_error') + ':', ordersError);
+      if (itemsError) console.error('order_items ' + t('common.query_error') + ':', itemsError);
       setAllOrders(orders || []);
       setAllOrderItems(items || []);
     } catch (e) { console.error('Orders error:', e); }
@@ -309,7 +311,7 @@ export default function StaffPos() {
   }
 
   async function deleteAllOrdersForTable(tableUuid: string) {
-    if (!confirm('테이블의 모든 주문을 삭제하시겠습니까?')) return;
+    if (!confirm(t('common.delete_table_orders_confirm'))) return;
     setLoading(true);
     try {
       const s = getSupabase();
@@ -319,8 +321,8 @@ export default function StaffPos() {
       const { error } = await s.from('orders').delete().eq('table_id', tableUuid);
       if (error) throw error;
       await fetchOrders();
-      setMessage('삭제되었습니다.');
-    } catch (e) { console.error(e); setMessage('삭제 실패'); }
+      setMessage(t('common.deleted'));
+    } catch (e) { console.error(e); setMessage(t('common.delete_failed')); }
     finally { setLoading(false); }
   }
 
@@ -372,7 +374,7 @@ export default function StaffPos() {
         }
       }
       await fetchOrders();
-    } catch (e) { console.error(e); setMessage('수정 실패'); }
+    } catch (e) { console.error(e); setMessage(t('common.edit_failed')); }
     finally { setLoading(false); }
   }
 
@@ -533,8 +535,8 @@ export default function StaffPos() {
       setLocalPriceEdits({});
       setLocalQtyEdits({});
       await fetchOrders();
-      setMessage('주문 수정이 완료되었습니다!');
-    } catch (e) { console.error(e); setMessage('수정 실패'); }
+      setMessage(t('common.order_updated'));
+    } catch (e) { console.error(e); setMessage(t('common.edit_failed')); }
     finally { setLoading(false); }
   }
 
@@ -598,7 +600,7 @@ export default function StaffPos() {
   }
 
   async function submitOrder() {
-    if (!selectedTable) { setMessage('테이블을 선택하세요'); return; }
+    if (!selectedTable) { setMessage(t('common.select_table')); return; }
     if (cart.length === 0) return;
 
     const total = cart.reduce((s, i) => s + i.price * i.quantity * (1 + (i.tax_rate || 0.1)), 0);
@@ -607,7 +609,7 @@ export default function StaffPos() {
     try {
       const s = getSupabase();
       const selectedTableId = tables.find(t => t.name.replace(/\D/g, '') === selectedTable)?.id;
-      if (!selectedTableId) throw new Error('테이블을 찾을 수 없습니다: ' + selectedTable);
+      if (!selectedTableId) throw new Error(t('common.table_not_found') + ': ' + selectedTable);
 
       type InsertResult = { data: { id: string } | null; error: { code?: string; message?: string } | null };
       const isColErr = (e: { code?: string; message?: string } | null) =>
@@ -619,8 +621,8 @@ export default function StaffPos() {
       ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total_amount: total, status: 'pending' }).select().single() as InsertResult);
       if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, total: total, status: 'pending' }).select().single() as InsertResult);
       if (isColErr(oe)) ({ data: od, error: oe } = await s.from('orders').insert({ table_id: selectedTableId, status: 'pending' }).select().single() as InsertResult);
-      if (oe) throw new Error(oe.message || '주문 저장 오류');
-      if (!od) throw new Error('주문 생성 실패');
+      if (oe) throw new Error(oe.message || t('common.order_save_error'));
+      if (!od) throw new Error(t('common.order_create_failed'));
 
       // 아이템 insert (note 컬럼 없으면 fallback)
       const withNote = cart.map(i => ({ order_id: od!.id, product_id: i.id, quantity: i.quantity, price: i.price * i.quantity, note: cartMemos[i.id] || null }));
@@ -641,16 +643,16 @@ export default function StaffPos() {
       });
       setCart([]);
       setCartMemos({});
-      setMessage('주문이 완료되었습니다!');
+      setMessage(t('common.order_completed'));
       navigateTo('orders');
       fetchOrders();
     } catch (e: unknown) {
-      console.error('주문 처리 중 오류 발생:', e);
+      console.error(t('common.order_process_error') + ':', e);
       let errMsg = '';
       if (e instanceof Error) errMsg = e.message;
       else if (typeof e === 'object' && e !== null && 'message' in e) errMsg = String((e as Record<string, unknown>).message);
       else errMsg = JSON.stringify(e);
-      setMessage('주문 처리 중 오류 발생: ' + errMsg);
+      setMessage(t('common.order_process_error') + ': ' + errMsg);
     } finally { setLoading(false); }
   }
 
@@ -705,15 +707,15 @@ export default function StaffPos() {
       setCurrentView('orders');
       setPendingOrders([]);
       setSelectedTable(null);
-      setMessage('결제 완료! 테이블이 초기화되었습니다.');
+      setMessage(t('common.pay_complete_table_reset'));
       await fetchOrders();
     } catch (e: unknown) {
-      console.error('결제 에러:', e);
+      console.error(t('common.pay_error') + ':', e);
       setCurrentView('orders');
       setPendingOrders([]);
       setSelectedTable(null);
-      const errMsg = e instanceof Error ? e.message : '알수없음';
-      setMessage('결제 오류: ' + errMsg);
+      const errMsg = e instanceof Error ? e.message : t('common.unknown');
+      setMessage(t('common.pay_error') + ': ' + errMsg);
       await fetchOrders();
     } finally { setLoading(false); }
   }
@@ -753,7 +755,7 @@ export default function StaffPos() {
       mergedUuids.some(uid => String(uid) === String(o.table_id)) && (o.status === 'pending' || o.status === 'completed')
     );
     if (allActiveOrders.length === 0) {
-      setMessage('결제할 주문이 없습니다.');
+      setMessage(t('common.no_pay_orders'));
       return;
     }
     const activeTotal = allActiveOrders.reduce(
@@ -791,12 +793,12 @@ export default function StaffPos() {
       setMergedTables([]);
       setIsMergeMode(false);
       setCurrentView('orders');
-      setMessage('합석 결제 완료! 테이블이 초기화되었습니다.');
+      setMessage(t('common.merge_pay_complete_table_reset'));
       await fetchOrders();
     } catch (e: unknown) {
-      console.error('합석 결제 에러:', e);
-      const errMsg = e instanceof Error ? e.message : '알수없음';
-      setMessage('합석 결제 오류: ' + errMsg);
+      console.error(t('common.merge_pay_error') + ':', e);
+      const errMsg = e instanceof Error ? e.message : t('common.unknown');
+      setMessage(t('common.merge_pay_error') + ': ' + errMsg);
     } finally { setLoading(false); }
   }
 
@@ -883,16 +885,16 @@ export default function StaffPos() {
         </div>
         <div className="flex-1 min-w-0">
           <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
-            {product?.name || '상품'}
+            {product?.name || t('common.product')}
             {supplyAmount === 0 && <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-1 py-0.5 rounded">서비스</span>}
           </p>
           {supplyAmount === 0
             ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
-            : <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>}
+            : <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {supplyAmount.toLocaleString()} VND</p>}
           {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
           {!itemDone && deferred && localDelta !== 0 && (
             <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]')}>
-              {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
+              {localDelta > 0 ? '▲ +' + localDelta + t('common.unit') + ' ' + t('common.add_planned') : '▼ ' + localDelta + t('common.unit') + ' ' + t('common.cancel_planned')}
             </p>
           )}
         </div>
@@ -934,8 +936,8 @@ export default function StaffPos() {
             <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
-                <span className="text-sm font-bold text-amber-700">주방 대기 중</span>
-                <span className="text-xs text-amber-500">{splitPending.length}건</span>
+                <span className="text-sm font-bold text-amber-700">{t('common.status_pending')}</span>
+                <span className="text-xs text-amber-500">{splitPending.length}{t('common.order_count_unit')}</span>
               </div>
               <span className="text-sm font-bold text-amber-600">{Math.round(splitPendingTotal).toLocaleString()} VND</span>
             </div>
@@ -951,10 +953,10 @@ export default function StaffPos() {
             <div className="px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                <span className="text-sm font-bold text-green-700">조리 완료</span>
-                <span className="text-xs text-green-500">{pcMergedCompletedItems.length}종</span>
+                <span className="text-sm font-bold text-green-700">{t('common.status_completed')}</span>
+                <span className="text-xs text-green-500">{pcMergedCompletedItems.length}{t('common.items_types')}</span>
               </div>
-              <span className="text-xs text-green-500">수량 변경 후 주문하기</span>
+              <span className="text-xs text-green-500">{t('common.edit_qty_then_order', { editQty: t('common.edit_qty'), orderNow: t('common.order_now') })}</span>
             </div>
             <div>
               {pcMergedCompletedItems.map(mitem => {
@@ -972,34 +974,34 @@ export default function StaffPos() {
                         {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                        <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
+                        <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {supplyAmount.toLocaleString()} VND</p>
                         {mitem.notes.length > 0 && (
                           <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
                         )}
                         {localDelta !== 0 && (
                           <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
+                            {localDelta > 0 ? '▲ +' + localDelta + t('common.unit') + ' ' + t('common.add_planned') : '▼ ' + localDelta + t('common.unit') + ' ' + t('common.cancel_planned')}
                           </p>
                         )}
                         {addonEntry && (
-                          <p className="text-[10px] mt-0.5 font-bold text-purple-600">✨ 추가 {addonEntry.qty}개 · {(editedPrice * addonEntry.qty).toLocaleString()} VND</p>
+                          <p className="text-[10px] mt-0.5 font-bold text-purple-600">{t('common.addon_extra_qty', { qty: addonEntry.qty, amount: (editedPrice * addonEntry.qty).toLocaleString() })}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: Math.max(-mitem.totalQty, (prev['merged-' + mitem.productId] || 0) - 1) })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">−</button>
-                        <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}개</span>
+                        <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}{t('common.unit')}</span>
                         <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: (prev['merged-' + mitem.productId] || 0) + 1 })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-green-100 hover:text-green-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">+</button>
                         <button onClick={() => { const vid = mitem.virtualId; if (editingPriceId === vid) { setEditingPriceId(null); } else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">✏️</button>
-                        <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || '상품' } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">추가</button>
+                        <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || t('common.product') } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">{t('common.add_button')}</button>
                       </div>
                     </div>
                     {isEditingPrice && (
                       <div className="px-4 pb-2.5 flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 shrink-0">추가 단가 수정:</span>
-                        <input type="number" value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className="flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400" placeholder="단가 입력" />
+                        <span className="text-[10px] text-gray-500 shrink-0">{t('common.addon_unit_edit')}</span>
+                        <input type="number" value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className="flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400" placeholder={t('common.unit_price_input')} />
                         <span className="text-[10px] text-gray-400 shrink-0">VND</span>
-                        <button onClick={() => { const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0); setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val })); setEditingPriceId(null); }} className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
+                        <button onClick={() => { const val = priceInputStr === '' ? 0 : Math.max(0, Number(priceInputStr) || 0); setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val })); setEditingPriceId(null); }} className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">{t('common.confirm_btn')}</button>
                       </div>
                     )}
                   </div>
@@ -1019,7 +1021,7 @@ export default function StaffPos() {
               <div className='px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
                   <span className='w-2 h-2 bg-green-400 rounded-full'></span>
-                  <span className='text-sm font-bold text-green-700'>추가 주문 완료</span>
+                  <span className='text-sm font-bold text-green-700'>{t('common.addon_complete')}</span>
                   <span className='text-xs text-green-400'>{orderTime}</span>
                 </div>
                 <span className='text-xs text-green-600'>{items.reduce((s, i) => { const up = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price); return s + up * i.quantity; }, 0).toLocaleString()} VND</span>
@@ -1036,16 +1038,16 @@ export default function StaffPos() {
                           {product?.image_url ? <img src={product.image_url} alt='' className='w-full h-full object-contain' /> : <span className='text-[8px] text-gray-300'>-</span>}
                         </div>
                         <div className='flex-1 min-w-0'>
-                          <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || '상품'}</p>
-                          <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
+                          <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || t('common.product')}</p>
+                          <p className='text-[10px] text-gray-400'>{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                         </div>
-                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
+                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}{t('common.unit')}</span>
                         <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0'>✏️</button>
                       </div>
                       {editingPriceId === item.id && (
                         <div className='flex items-center gap-1 px-4 pb-2'>
                           <input type='number' value={priceInputStr} onChange={e => setPriceInputStr(e.target.value)} className='flex-1 min-w-0 px-2 py-1 border border-yellow-300 rounded text-xs' />
-                          <button onClick={() => { setLocalItemPriceEdits(prev => ({ ...prev, [item.id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0'>확인</button>
+                          <button onClick={() => { setLocalItemPriceEdits(prev => ({ ...prev, [item.id]: Number(priceInputStr) })); setEditingPriceId(null); setTimeout(() => submitOrderEdits(), 0); }} className='text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold flex-shrink-0'>{t('common.confirm_btn')}</button>
                         </div>
                       )}
                     </div>
@@ -1066,7 +1068,7 @@ export default function StaffPos() {
               <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                  <span className="text-sm font-bold text-purple-700">추가 서비스</span>
+                  <span className="text-sm font-bold text-purple-700">{t('common.additional_service')}</span>
                   <span className="text-xs text-purple-400">{orderTime}</span>
                 </div>
                 <span className="text-xs text-purple-500">서비스 (0 VND)</span>
@@ -1080,10 +1082,10 @@ export default function StaffPos() {
                         {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
+                        <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
                         <p className="text-[10px] text-pink-500 font-medium">서비스 제공</p>
                       </div>
-                      <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                      <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}{t('common.unit')}</span>
                     </div>
                   );
                 })}
@@ -1093,7 +1095,7 @@ export default function StaffPos() {
         })}
 
         {splitTableOrders.length === 0 && (
-          <div className="text-center py-12 text-gray-300 text-sm">아직 주문이 없습니다</div>
+          <div className="text-center py-12 text-gray-300 text-sm">{t('common.no_orders_yet')}</div>
         )}
       </>
     );
@@ -1105,22 +1107,22 @@ export default function StaffPos() {
         {!selectedTable ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
             <div className="text-5xl mb-4">👈</div>
-            <p className="text-base font-semibold text-gray-500">테이블을 선택하세요</p>
-            <p className="text-xs text-gray-400 mt-2">선택 시 주문 내역이 여기에 표시됩니다</p>
+            <p className="text-base font-semibold text-gray-500">{t('common.select_table_prompt')}</p>
+            <p className="text-xs text-gray-400 mt-2">{t('common.select_table_hint')}</p>
           </div>
         ) : (
           <>
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-[#111827]">Table {selectedTable}</h2>
+                <h2 className="text-lg font-bold text-[#111827]">{t('common.table')} {selectedTable}</h2>
                 <p className="text-xs text-gray-400 mt-0.5 truncate">
-                  {splitTableOrders.length === 0 ? '주문 없음' : `${splitTableOrders.length}건 · ${Math.round(splitTotal).toLocaleString()} VND`}
+                  {splitTableOrders.length === 0 ? t('common.no_orders_status') : `${splitTableOrders.length}${t('common.order_count_unit')} · ${Math.round(splitTotal).toLocaleString()} VND`}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
                   className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100">
-                  📋 히스토리
+                  📋 {t('common.history_btn')}
                 </button>
                 <button onClick={goBack} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded">✕</button>
               </div>
@@ -1135,26 +1137,26 @@ export default function StaffPos() {
                 onClick={() => setCurrentView(currentView === 'menu' ? 'orders' : 'menu')}
                 className={'absolute -top-16 right-4 w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-xl text-white transition-all ring-4 ring-white ' +
                   (currentView === 'menu' ? 'bg-gray-700 hover:bg-gray-800' : 'bg-blue-500 hover:bg-blue-600')}
-                title={currentView === 'menu' ? '메뉴 닫기' : '메뉴 열기'}>
+                title={currentView === 'menu' ? t('common.menu_close') : t('common.menu_open')}>
                 {currentView === 'menu' ? '✕' : '+'}
               </button>
               <div className="p-3 grid grid-cols-3 gap-2">
                 <button onClick={() => setShowReceiptModal(true)}
                   disabled={splitTableOrders.length === 0}
                   className="py-3 rounded-xl bg-white border border-amber-300 hover:bg-amber-50 disabled:opacity-40 text-xs font-bold text-amber-700">
-                  🧾 가영수증
+                  🧾 {t('common.receipt_btn')}
                 </button>
                 <button onClick={() => { if (cart.length > 0) { submitOrder(); } else if (pcHasEdits) { submitOrderEdits(); } }}
                   disabled={loading || (cart.length === 0 && !pcHasEdits)}
                   className="py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-400 text-white text-xs font-bold shadow">
-                  {loading ? '처리중' : (cart.length > 0
-                    ? `🛒 주문하기 (${cart.reduce((s, i) => s + i.quantity, 0)})`
-                    : pcHasEdits ? '🛒 변경 반영' : '🛒 주문하기')}
+                  {loading ? t('common.processing') : (cart.length > 0
+                    ? `🛒 ${t('common.order_now')} (${cart.reduce((s, i) => s + i.quantity, 0)})`
+                    : pcHasEdits ? '🛒 ' + t('common.change_apply_button') : '🛒 ' + t('common.order_now_button'))}
                 </button>
                 <button onClick={() => { setPendingOrders(splitTableOrders); setShowPaymentModal(true); }}
                   disabled={splitTableOrders.length === 0}
                   className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-xs font-bold shadow">
-                  💳 결제하기
+                  💳 {t('common.pay_btn')}
                 </button>
               </div>
             </div>
@@ -1213,7 +1215,7 @@ export default function StaffPos() {
     const handlePay = () => {
       if (payMethod === 'transfer') { setShowTransferQR(true); return; }
       if (payMethod === 'cash' && cashReceived > 0 && cashReceived < payable) {
-        setMessage('받은 금액이 부족합니다.');
+        setMessage(t('common.insufficient_funds'));
         return;
       }
       completePayment(payMethod, payable);
@@ -1224,10 +1226,10 @@ export default function StaffPos() {
     };
 
     const methods: Array<{ key: 'cash' | 'card' | 'transfer' | 'mixed'; icon: string; name: string }> = [
-      { key: 'cash', icon: '💵', name: '현금 (Tiền mặt)' },
-      { key: 'card', icon: '💳', name: '카드 (Thẻ)' },
-      { key: 'transfer', icon: '🏦', name: '계좌이체 (Chuyển khoản)' },
-      { key: 'mixed', icon: '🔀', name: '혼합 (Kết hợp)' },
+      { key: 'cash', icon: '💵', name: t('common.pay_methods.cash') + ' (Tiền mặt)' },
+      { key: 'card', icon: '💳', name: t('common.pay_methods.card') + ' (Thẻ)' },
+      { key: 'transfer', icon: '🏦', name: t('common.pay_methods.transfer') + ' (Chuyển khoản)' },
+      { key: 'mixed', icon: '🔀', name: t('common.pay_methods.mixed') + ' (Kết hợp)' },
     ];
 
     return (
@@ -1251,9 +1253,9 @@ export default function StaffPos() {
                       <QRCodeSVG value={qrValue || ' '} size={76} level="M" />
                     </div>
                     <div className="space-y-2 flex-1">
-                      <div><p className="text-[10px] text-blue-400 uppercase">은행</p><p className="text-sm font-bold text-[#1F2937]">{settings.bank_name}</p></div>
-                      <div><p className="text-[10px] text-blue-400 uppercase">계좌번호</p><p className="text-sm font-bold text-[#1F2937] tracking-wider">{settings.account_number}</p></div>
-                      <div><p className="text-[10px] text-blue-400 uppercase">예금주</p><p className="text-sm font-semibold text-[#1F2937]">{settings.account_holder}</p></div>
+                      <div><p className="text-[10px] text-blue-400 uppercase">{t('common.bank_label_qr')}</p><p className="text-sm font-bold text-[#1F2937]">{settings.bank_name}</p></div>
+                      <div><p className="text-[10px] text-blue-400 uppercase">{t('common.account_label_qr')}</p><p className="text-sm font-bold text-[#1F2937] tracking-wider">{settings.account_number}</p></div>
+                      <div><p className="text-[10px] text-blue-400 uppercase">{t('common.holder_label_qr')}</p><p className="text-sm font-semibold text-[#1F2937]">{settings.account_holder}</p></div>
                     </div>
                   </div>
                 ) : (
@@ -1287,7 +1289,7 @@ export default function StaffPos() {
                   <h3 className="text-base font-bold text-[#111827]">결제 (Thanh toán)</h3>
                   <p className="text-xs text-gray-400">Table {selectedTable}</p>
                 </div>
-                <button onClick={() => issueReceipt()} className="p-1 text-gray-600" title="가영수증">
+                <button onClick={() => issueReceipt()} className="p-1 text-gray-600" title={t('common.receipt_btn')}>
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                 </button>
               </div>
@@ -1437,11 +1439,11 @@ export default function StaffPos() {
               <div className="bg-white border-t border-gray-200 p-3 flex items-center gap-2">
                 <button onClick={() => issueReceipt()}
                   className="px-4 py-3 border-2 border-blue-500 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors whitespace-nowrap">
-                  가영수증
+                  {t('common.receipt_btn')}
                 </button>
                 <button onClick={handlePay}
                   className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-colors">
-                  결제: {payable.toLocaleString()}
+                  {t('common.pay')}: {payable.toLocaleString()}
                 </button>
               </div>
             </>
@@ -1467,21 +1469,21 @@ export default function StaffPos() {
         <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-[#111827]">직원 POS</h1>
-              <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length}건 대기 주문</p>
+              <h1 className="text-xl font-bold text-[#111827]">{t('common.staff_pos')}</h1>
+              <p className="text-sm text-[#9CA3AF] mt-0.5">{allOrders.filter(o => o.status === 'pending').length} {t('common.pending_orders')}</p>
             </div>
             <div className="flex items-center gap-2">
 
               <button onClick={() => { setHistoryTableFilter(null); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
                 className="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white border border-blue-200 text-blue-600 hover:bg-blue-50">
-                📋 히스토리
+                📋 {t('common.history_btn')}
               </button>
               <button onClick={toggleMergeMode}
                 className={'px-4 py-2 rounded-xl text-sm font-semibold transition-all ' +
                   (isMergeMode
                     ? 'bg-purple-500 text-white shadow-md'
                     : 'bg-white border border-purple-200 text-purple-600 hover:bg-purple-50')}>
-                {isMergeMode ? '✕ 합석 취소' : '🪑 합석'}
+                {isMergeMode ? '✕ ' + t('common.merge_cancel') : t('common.merge_tables')}
               </button>
             </div>
           </div>
@@ -1489,17 +1491,17 @@ export default function StaffPos() {
           {isMergeMode && (
             <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-purple-700">합석 모드</p>
+                <p className="text-sm font-semibold text-purple-700">{t('common.merge_mode')}</p>
                 <p className="text-xs text-purple-500">
                   {mergedTables.length === 0
-                    ? '결제할 테이블을 2개 이상 선택하세요'
-                    : `Table ${mergedTables.join(', ')} 선택됨 · ${mergedGrandTotal.toLocaleString()} VND`}
+                    ? t('common.select_two_or_more_tables')
+                    : `${t('common.table')} ${mergedTables.join(', ')} ${t('common.merge_selected')} · ${mergedGrandTotal.toLocaleString()} VND`}
                 </p>
               </div>
               {mergedTables.length >= 2 && (
                 <button onClick={openMergedOrders}
                   className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-                  합산 보기
+                  {t('common.view_merged_orders')}
                 </button>
               )}
             </div>
@@ -1569,11 +1571,11 @@ export default function StaffPos() {
                       ? 'text-purple-600'
                       : hasCompletedOrders ? 'text-green-500' : hasPendingOrders ? 'text-red-500' : 'text-gray-500')}>
                     {isMergeMode && isMergeSelected
-                      ? '합석 선택됨'
-                      : hasCompletedOrders ? '조리 완료' : hasPendingOrders ? '주문 대기' : '사용 가능'}
+                      ? t('common.merge_selected')
+                      : hasCompletedOrders ? t('common.status_completed') : hasPendingOrders ? t('common.pending_short') : t('common.available')}
                   </div>
                   {total > 0 && (
-                    <div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5">공급가액 {total.toLocaleString()} VND</div>
+                    <div className="text-[10px] lg:text-xs text-gray-500 bg-gray-50 rounded-lg px-2 lg:px-3 py-1.5">{t('common.supply_amount')} {total.toLocaleString()} VND</div>
                   )}
                   {totalOrders > 0 && (
                     <div className="mt-2 flex gap-2">
@@ -1634,12 +1636,12 @@ export default function StaffPos() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
               <div>
-                <h1 className="text-lg font-bold text-[#111827]">합석 주문</h1>
+                <h1 className="text-lg font-bold text-[#111827]">{t('common.merge_title')}</h1>
                 <p className="text-xs text-purple-500">Table {mergedTables.join(' + ')} · {mergedTables.length}개 테이블</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">합석 모드</span>
+              <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">{t('common.merge_mode')}</span>
             </div>
           </div>
         </header>
@@ -1658,7 +1660,7 @@ export default function StaffPos() {
                   <div className="flex items-center gap-2">
                     <span className={'w-2 h-2 rounded-full ' + (hasPending ? 'bg-amber-400' : 'bg-green-400')}></span>
                     <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-700' : 'text-green-700')}>Table {ts}</span>
-                    <span className={'text-xs ' + (hasPending ? 'text-amber-500' : 'text-green-500')}>{hasPending ? '주방 대기 중' : '조리 완료'}</span>
+                    <span className={'text-xs ' + (hasPending ? 'text-amber-500' : 'text-green-500')}>{hasPending ? t('common.status_pending') : t('common.status_completed')}</span>
                   </div>
                   <span className={'text-sm font-bold ' + (hasPending ? 'text-amber-600' : 'text-green-600')}>
                     {tableTotal.toLocaleString()} VND
@@ -1677,12 +1679,12 @@ export default function StaffPos() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
-                              {product?.name || '상품'}
+                              {product?.name || t('common.product')}
                               {unitPrice === 0 && <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-1 py-0.5 rounded">서비스</span>}
                             </p>
                             {unitPrice === 0
                               ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
-                              : <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>}
+                              : <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {unitPrice.toLocaleString()} VND × {item.quantity} = {(unitPrice * item.quantity).toLocaleString()} VND</p>}
                             {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
                           </div>
                           {itemDone ? (
@@ -1711,7 +1713,7 @@ export default function StaffPos() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-2 shadow-lg z-30">
           <div className="flex-1 flex items-center justify-between px-2">
             <div>
-              <p className="text-sm text-gray-600">결제 금액 <span className="text-xs text-purple-400">({mergedTables.length}개 테이블 · 대기 주문)</span></p>
+              <p className="text-sm text-gray-600">{t('common.pay_amount')} <span className="text-xs text-purple-400">({mergedTables.length} {t('common.table_count_unit')} · {t('common.pending_orders')})</span></p>
               {mergedGrandTotal !== mergedPendingTotal && (
                 <p className="text-[10px] text-gray-400">전체 {mergedGrandTotal.toLocaleString()} VND</p>
               )}
@@ -1721,25 +1723,25 @@ export default function StaffPos() {
           <button onClick={() => setShowMergedPaymentModal(true)}
             disabled={!mergedHasPending}
             className="px-5 py-2.5 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors">
-            합석 결제
+            {t('common.merge_payment')}
           </button>
         </div>
 
-        {/* 합석 결제 수단 모달 */}
+        {/* merge payment method modal */}
         {showMergedPaymentModal && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
               <div className="px-6 py-5 border-b border-gray-100">
-                <h3 className="text-lg font-bold text-[#111827]">합석 결제 수단</h3>
+                <h3 className="text-lg font-bold text-[#111827]">{t('common.merge_payment')} {t('common.payment_method')}</h3>
                 <p className="text-sm text-gray-400">
                   Table {mergedTables.join(' + ')} · {mergedPendingTotal.toLocaleString()} VND
                 </p>
               </div>
               <div className="p-4 space-y-2">
                 {[
-                  { key: 'cash', icon: '💵', name: '현금', sub: 'Cash' },
-                  { key: 'card', icon: '💳', name: '카드', sub: 'Card' },
-                  { key: 'transfer', icon: '🏦', name: '계좌이체', sub: 'Bank Transfer · QR' },
+                  { key: 'cash', icon: '💵', name: t('common.pay_methods.cash'), sub: 'Cash' },
+                  { key: 'card', icon: '💳', name: t('common.pay_methods.card'), sub: 'Card' },
+                  { key: 'transfer', icon: '🏦', name: t('common.pay_methods.transfer'), sub: 'Bank Transfer · QR' },
                 ].map(m => (
                   <button key={m.key} onClick={() => completeMergedPayment(m.key)}
                     className="w-full flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl transition-colors text-left">
@@ -1774,16 +1776,16 @@ export default function StaffPos() {
               <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || '회사아이콘 pos 시스템'}</h1>
+              <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || t('common.company_icon_pos')}</h1>
             </div>
           </header>
           <main className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <span className="text-5xl mb-4 block">📭</span>
-              <p className="text-gray-400 mb-6">주문 내역이 없습니다</p>
+              <p className="text-gray-400 mb-6">{t('common.no_orders_status_text')}</p>
               <button onClick={() => navigateTo('menu')}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
-                메뉴에서 주문하기
+                {t('common.order_from_menu_btn')}
               </button>
             </div>
           </main>
@@ -1869,17 +1871,17 @@ export default function StaffPos() {
                 <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || '회사아이콘 pos 시스템'}</h1>
+                <h1 className="text-lg font-bold text-[#111827]">{settings.staff_header_text || t('common.company_icon_pos')}</h1>
               </div>
             </div>
           </header>
           <main className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <span className="text-5xl mb-4 block">📭</span>
-              <p className="text-gray-400 mb-6">주문 내역이 없습니다</p>
+              <p className="text-gray-400 mb-6">{t('common.no_orders_status_text')}</p>
               <button onClick={() => navigateTo('menu')}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
-                메뉴에서 주문하기
+                {t('common.order_from_menu_btn')}
               </button>
             </div>
           </main>
@@ -1905,16 +1907,16 @@ export default function StaffPos() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={"text-xs font-medium truncate" + (itemDone ? ' text-green-600 line-through' : ' text-[#374151]')}>
-                {product?.name || '상품'}
+                {product?.name || t('common.product')}
                 {supplyAmount === 0 && <span className="ml-1 text-[9px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-1 py-0.5 rounded">서비스</span>}
               </p>
               {supplyAmount === 0
                 ? <p className="text-[10px] text-pink-500 font-medium">서비스 제공 (0 VND)</p>
-                : <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>}
+                : <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {supplyAmount.toLocaleString()} VND</p>}
               {item.note && <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {item.note}</p>}
               {!itemDone && deferred && localDelta !== 0 && (
                 <p className={"text-[10px] mt-0.5 font-bold " + (localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]')}>
-                  {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
+                  {localDelta > 0 ? '▲ +' + localDelta + t('common.unit') + ' ' + t('common.add_planned') : '▼ ' + localDelta + t('common.unit') + ' ' + t('common.cancel_planned')}
                 </p>
               )}
             </div>
@@ -1959,7 +1961,7 @@ export default function StaffPos() {
                   value={priceInputStr}
                   onChange={e => setPriceInputStr(e.target.value)}
                   className='flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400'
-                  placeholder='단가 입력'
+                  placeholder={t('common.unit_price') + ' 입력'}
                 />
                 <span className='text-[10px] text-gray-400 shrink-0'>VND</span>
                 <button onClick={() => {
@@ -1982,16 +1984,16 @@ export default function StaffPos() {
               <button onClick={goBack} className="text-gray-400 hover:text-[#111827] transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <p className="text-xs text-gray-400">주문내역 {tableOrders.length}건</p>
+              <p className="text-xs text-gray-400">{t('common.order_history_label')} {tableOrders.length}{t('common.order_count_unit')}</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => { setHistoryTableFilter(selectedTable); setExpandedHistoryId(null); setHistoryTick(t => t + 1); setShowHistory(true); }}
                 className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 whitespace-nowrap">
-                📋 히스토리
+                📋 {t('common.history_btn')}
               </button>
               <button onClick={() => deleteAllOrdersForTable(selectedTableUuid!)} disabled={tableOrders.length === 0 || loading}
                 className="text-xs text-red-400 hover:text-red-500 disabled:opacity-40 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap">
-                전체삭제
+                {t('common.delete_all')}
               </button>
             </div>
           </div>
@@ -2004,8 +2006,8 @@ export default function StaffPos() {
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
-                  <span className="text-sm font-bold text-amber-700">주방 대기 중</span>
-                  <span className="text-xs text-amber-500">{tablePendingOrders.length}건</span>
+                  <span className="text-sm font-bold text-amber-700">{t('common.status_pending')}</span>
+                  <span className="text-xs text-amber-500">{tablePendingOrders.length}{t('common.order_count_unit')}</span>
                 </div>
                 <span className="text-sm font-bold text-amber-600">
                   {Math.round(pendingSupplyTotal).toLocaleString()} VND
@@ -2023,10 +2025,10 @@ export default function StaffPos() {
               <div className="px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                  <span className="text-sm font-bold text-green-700">조리 완료</span>
-                  <span className="text-xs text-green-500">{mergedCompletedItems.length}종</span>
+                  <span className="text-sm font-bold text-green-700">{t('common.status_completed')}</span>
+                  <span className="text-xs text-green-500">{mergedCompletedItems.length}{t('common.items_types')}</span>
                 </div>
-                <span className="text-xs text-green-500">수량 변경 후 주문하기</span>
+                <span className="text-xs text-green-500">{t('common.edit_qty_then_order', { editQty: t('common.edit_qty'), orderNow: t('common.order_now') })}</span>
               </div>
               <div>
                 {mergedCompletedItems.map(mitem => {
@@ -2045,37 +2047,37 @@ export default function StaffPos() {
                           {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                          <p className="text-[10px] text-gray-400">공급가 {supplyAmount.toLocaleString()} VND</p>
+                          <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
+                          <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {supplyAmount.toLocaleString()} VND</p>
                           {mitem.notes.length > 0 && (
                             <p className="text-[10px] text-blue-500 mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded inline-block">📝 {mitem.notes.join(', ')}</p>
                           )}
                           {localDelta !== 0 && (
                             <p className={`text-[10px] mt-0.5 font-bold ${localDelta > 0 ? 'text-green-600' : localDelta < 0 ? 'text-red-500' : 'text-[#111827]'}`}>
-                              {localDelta > 0 ? '▲ +' + localDelta + '개 추가 예정' : '▼ ' + localDelta + '개 취소 예정'}
+                              {localDelta > 0 ? '▲ +' + localDelta + t('common.unit') + ' ' + t('common.add_planned') : '▼ ' + localDelta + t('common.unit') + ' ' + t('common.cancel_planned')}
                             </p>
                           )}
                           {addonEntry && (
-                            <p className="text-[10px] mt-0.5 font-bold text-purple-600">✨ 추가 {addonEntry.qty}개 · {(editedPrice * addonEntry.qty).toLocaleString()} VND</p>
+                            <p className="text-[10px] mt-0.5 font-bold text-purple-600">{t('common.addon_extra_qty', { qty: addonEntry.qty, amount: (editedPrice * addonEntry.qty).toLocaleString() })}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: Math.max(-mitem.totalQty, (prev['merged-' + mitem.productId] || 0) - 1) })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">−</button>
-                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}개</span>
+                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}{t('common.unit')}</span>
                           <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: (prev['merged-' + mitem.productId] || 0) + 1 })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-green-100 hover:text-green-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">+</button>
                           <button onClick={() => { const vid = mitem.virtualId; if (editingPriceId === vid) { setEditingPriceId(null); } else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">✏️</button>
-                          <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || '상품' } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">추가</button>
+                          <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || t('common.product') } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">{t('common.add_button')}</button>
                         </div>
                       </div>
                       {isEditingPrice && (
                         <div className="px-4 pb-2.5 flex items-center gap-2">
-                          <span className="text-[10px] text-gray-500 shrink-0">추가 단가 수정:</span>
+                          <span className="text-[10px] text-gray-500 shrink-0">{t('common.addon_unit_edit')}</span>
                           <input
                             type="number"
                             value={priceInputStr}
                             onChange={e => setPriceInputStr(e.target.value)}
                             className="flex-1 text-xs border border-yellow-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                            placeholder="단가 입력"
+                            placeholder={t('common.unit_price_input')}
                           />
                           <span className="text-[10px] text-gray-400 shrink-0">VND</span>
                           <button onClick={() => {
@@ -2083,7 +2085,7 @@ export default function StaffPos() {
                             setLocalPriceEdits(prev => ({ ...prev, [mitem.productId]: val }));
                             setEditingPriceId(null);
                           }}
-                            className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">확인</button>
+                            className="text-[10px] text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded-lg font-bold shrink-0">{t('common.confirm_btn')}</button>
                         </div>
                       )}
                     </div>
@@ -2122,8 +2124,8 @@ export default function StaffPos() {
                             {product?.image_url ? <img src={product.image_url} alt='' className='w-full h-full object-contain' /> : <span className='text-[8px] text-gray-300'>-</span>}
                           </div>
                           <div className='flex-1 min-w-0'>
-                            <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || '상품'}</p>
-                            <p className='text-[10px] text-gray-400'>공급가 {unitPrice.toLocaleString()} VND</p>
+                            <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || t('common.product')}</p>
+                            <p className='text-[10px] text-gray-400'>{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                           </div>
                           <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
                           <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0'>✏️</button>
@@ -2151,7 +2153,7 @@ export default function StaffPos() {
                 <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                    <span className="text-sm font-bold text-purple-700">추가 서비스</span>
+                    <span className="text-sm font-bold text-purple-700">{t('common.additional_service')}</span>
                     <span className="text-xs text-purple-400">{orderTime}</span>
                   </div>
                   <span className="text-xs text-purple-500">
@@ -2175,8 +2177,8 @@ export default function StaffPos() {
                             {product?.image_url ? <img src={product.image_url} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-gray-300">-</span>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-[#374151] truncate">{product?.name || '상품'}</p>
-                            <p className="text-[10px] text-gray-400">공급가 {unitPrice.toLocaleString()} VND</p>
+                            <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
+                            <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                           </div>
                           <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
                           <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0">✏️</button>
@@ -2199,17 +2201,17 @@ export default function StaffPos() {
         {/* 하단 고정 버튼 영역 */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex gap-1.5 shadow-lg z-30">
           <div className="flex items-center justify-between px-2 min-w-0 flex-1">
-            <span className="text-sm text-gray-600 shrink-0">공급가액</span>
+            <span className="text-sm text-gray-600 shrink-0">{t('common.supply_amount')}</span>
             <span className="text-base font-bold text-blue-600 ml-1">{Math.round(displaySupplyTotal).toLocaleString()} VND</span>
           </div>
           <button onClick={() => issueReceipt()}
             className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors shrink-0">
-            가영수증
+            {t('common.receipt_btn')}
           </button>
           <button onClick={submitOrderEdits}
             disabled={(Object.keys(localQtyEdits).filter(k => localQtyEdits[k] !== 0).length === 0 && Object.keys(addonItemsMap).length === 0 && Object.keys(localItemPriceEdits).length === 0) || loading}
             className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors shrink-0">
-            주문하기
+            {t('common.order_now')}
           </button>
           <button onClick={() => { setPendingOrders(tableOrders); setShowPaymentModal(true); }}
             disabled={tableOrders.length === 0}
@@ -2247,26 +2249,26 @@ export default function StaffPos() {
 
   // ==================== 메뉴 주문 (반응형: PC 좌우분할 / 모바일 단일) ====================
   return (
-    <div className="min-h-screen lg:h-full lg:min-h-0 lg:overflow-hidden bg-[#F8F9FA] lg:flex lg:flex-row">
+    <div className="h-full min-h-0 lg:h-full lg:overflow-hidden bg-[#F8F9FA] lg:flex lg:flex-row">
       {/* ===== 왼쪽: 상품 영역 ===== */}
-      <div className="flex-1 flex flex-col min-h-screen lg:h-full lg:min-h-0 lg:overflow-y-auto">
+      <div className="flex-1 flex flex-col min-h-0 lg:h-full lg:overflow-y-auto">
         <header className="bg-white border-b border-[#E5E7EB] px-3 lg:px-4 py-2.5 lg:py-3 shadow-sm">
           <div className="flex items-center justify-between mb-2 lg:mb-3">
             <div className="flex items-center gap-2 lg:gap-3">
               <button onClick={goBack} className="text-gray-400 hover:text-[#111827]">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <h1 className="text-base lg:text-lg font-bold text-[#111827]">Table {selectedTable}</h1>
+              <h1 className="text-base lg:text-lg font-bold text-[#111827]">{t('common.table')} {selectedTable}</h1>
             </div>
             <div className="flex items-center gap-2">
 
               <button onClick={() => navigateTo('orders')} className={'text-xs lg:text-sm text-blue-500 font-medium px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg hover:bg-blue-50 transition-colors ' + (pcSplit ? 'lg:hidden' : '')}>
-                주문내역
+                {t('common.history_btn')}
               </button>
             </div>
           </div>
           <div className="mb-2 lg:mb-3">
-            <input type="text" placeholder="검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            <input type="text" placeholder={`${t('common.search')}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               className="w-full px-3 lg:px-4 py-2 lg:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-[#374151] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all" />
           </div>
           <div className="flex gap-1 lg:gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
@@ -2274,7 +2276,7 @@ export default function StaffPos() {
               <button key={cat} onClick={() => setSelectedCategory(cat)}
                 className={'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-medium whitespace-nowrap transition-all ' +
                   (selectedCategory === cat ? 'bg-[#1F2937] text-white shadow-md' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50')}>
-                {cat === 'all' ? '전체' : cat}
+                {cat === 'all' ? t('common.all') : cat}
               </button>
             ))}
           </div>
@@ -2284,7 +2286,7 @@ export default function StaffPos() {
         {cart.length > 0 && (
           <div className="lg:hidden bg-white border-b border-blue-100 px-3 py-2 shadow-sm">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-bold text-blue-700">선택 메뉴 {cart.reduce((s, i) => s + i.quantity, 0)}개</span>
+              <span className="text-xs font-bold text-blue-700">{t('common.selected_items')} {cart.reduce((s, i) => s + i.quantity, 0)}{t('common.unit')}</span>
               <span className="text-xs font-bold text-blue-700">{cartSubtotal.toLocaleString()} VND</span>
             </div>
             <div className="space-y-1.5 max-h-44 overflow-y-auto">
@@ -2339,7 +2341,7 @@ export default function StaffPos() {
                       )}
                     </div>
                   </div>
-                  <input type="text" placeholder="📝 주방 메모"
+                  <input type="text" placeholder={`📝 ${t('common.kitchen_memo')}`}
                     value={cartMemos[item.id] || ''}
                     onChange={e => setCartMemos(prev => ({ ...prev, [item.id]: e.target.value }))}
                     className="w-full text-[10px] px-2 py-1 bg-white border border-blue-100 rounded-lg text-blue-700 placeholder-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300" />
@@ -2351,7 +2353,7 @@ export default function StaffPos() {
 
         <div className="flex-1 overflow-y-auto p-3 lg:p-4">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-gray-400">로딩 중...</div>
+            <div className="flex items-center justify-center h-full text-gray-400">{t('common.loading')}</div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 lg:gap-3">
               {filteredProducts.map(product => (
@@ -2378,16 +2380,16 @@ export default function StaffPos() {
       {/* ===== 모바일 하단: 합계 + 주문하기 버튼만 ===== */}
       <div className="bg-white border-t border-gray-100 px-3 lg:hidden py-3 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.06)] z-30">
         {cart.length === 0 && (
-          <p className="text-center text-xs text-gray-400 py-1">상품을 선택하세요</p>
+          <p className="text-center text-xs text-gray-400 py-1">{t('common.empty_cart')}</p>
         )}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-base font-bold text-[#111827]">{cartSubtotal.toLocaleString()} <span className="text-xs font-normal text-gray-400">VND</span></p>
-            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}개</p>
+            <p className="text-[10px] text-gray-400">{cart.reduce((s, i) => s + i.quantity, 0)}{t('common.unit')}</p>
           </div>
           <button onClick={submitOrder} disabled={loading || cart.length === 0}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
-            {loading ? '처리중...' : '주문하기'}
+            {loading ? t('common.processing') : t('common.order_now_button')}
           </button>
         </div>
       </div>
@@ -2397,15 +2399,15 @@ export default function StaffPos() {
         <div className="sticky top-0 h-screen bg-white border-l border-gray-100 shadow-sm flex flex-col">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-base font-bold text-[#111827]">
-              장바구니 <span className="text-sm font-normal text-gray-400">({cart.reduce((s, i) => s + i.quantity, 0)}개)</span>
+              {t('common.cart_label')} <span className="text-sm font-normal text-gray-400">({cart.reduce((s, i) => s + i.quantity, 0)}{t('common.unit')})</span>
             </h2>
             <button onClick={() => navigateTo('orders')} className="text-xs text-blue-500 hover:text-blue-600 font-medium px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors">
-              주문내역
+              {t('common.history_btn')}
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {cart.length === 0 && (<p className="text-center text-xs text-gray-400 py-8">상품을 선택하세요</p>)}
+            {cart.length === 0 && (<p className="text-center text-xs text-gray-400 py-8">{t('common.empty_cart')}</p>)}
             {cart.map(item => (
               <div key={item.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -2443,7 +2445,7 @@ export default function StaffPos() {
                     )}
                   </div>
                 </div>
-                <input type="text" placeholder="📝 주방 메모 (선택)"
+                <input type="text" placeholder={`📝 ${t('common.kitchen_memo')} (${t('common.optional')})`}
                   value={cartMemos[item.id] || ''}
                   onChange={e => setCartMemos(prev => ({ ...prev, [item.id]: e.target.value }))}
                   className="w-full text-xs px-2.5 py-1.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 placeholder-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300" />
@@ -2459,7 +2461,7 @@ export default function StaffPos() {
               </div>
               <button onClick={submitOrder} disabled={loading || cart.length === 0}
                 className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20">
-                {loading ? '처리중...' : '주문하기'}
+                {loading ? t('common.processing') : t('common.order_now_button')}
               </button>
             </div>
           </div>
