@@ -44,31 +44,31 @@ export default function StaffPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-300 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 overflow-hidden">
-      <header className="bg-gray-800 border-b border-gray-700 px-3 py-2 flex-shrink-0">
+    <div className="h-screen flex flex-col overflow-hidden bg-white">
+      <header className="relative z-50 flex-shrink-0 border-b border-white/40 bg-white/20 px-3 py-2 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="min-w-0">
-              <h1 className="text-white font-semibold text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis">{headerText}</h1>
-              <p className="text-gray-400 text-[10px] md:text-xs">{t('common.staff_mode')}</p>
+              <h1 className="text-[#1f3557] font-black text-sm md:text-base whitespace-nowrap overflow-hidden text-ellipsis tracking-tight">{headerText}</h1>
+              <p className="text-[#4f7095]/80 text-[10px] md:text-xs">{t('common.staff_mode')}</p>
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <LanguageSelector />
             <div className="text-right hidden sm:block">
-              <p className="text-white text-xs">{t('common.staff')}: {userId}</p>
-              <p className="text-gray-400 text-[10px]">{now}</p>
+              <p className="text-[#2f4f74] text-xs">{t('common.staff')}: {userId}</p>
+              <p className="text-[#5f7f9f] text-[10px]">{now}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded-lg text-[10px] md:text-sm font-medium transition-colors flex-shrink-0"
+              className="bg-rose-500/85 hover:bg-rose-500 text-white px-2 py-1.5 rounded-xl text-[10px] md:text-sm font-medium transition-colors flex-shrink-0 shadow-sm"
             >
               {t('common.logout')}
             </button>

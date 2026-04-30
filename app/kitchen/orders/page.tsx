@@ -330,12 +330,12 @@ export default function KitchenOrders() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* New order notification popup */}
       {notification && notification.show && (
         <div className="fixed top-4 right-4 z-50 animate-fade-in">
           <div className={`text-white px-6 py-4 rounded-xl shadow-2xl max-w-sm ${
-            notification.type === 'new' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-amber-500 to-amber-600'
+            notification.type === 'new' ? 'bg-gradient-to-r from-[#78b6f1] to-[#6aa8e4]' : 'bg-gradient-to-r from-[#8ec3f2] to-[#7bb1e6]'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -361,18 +361,18 @@ export default function KitchenOrders() {
         </div>
       )}
 
-      <header className="bg-gray-800 border-b border-gray-700 px-3 py-2">
+      <header className="bg-[#f2f8ff] border-b border-[#d9ebff] px-3 py-2">
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-1 min-w-0 flex-1">
-            <h1 className="text-white font-semibold text-sm md:text-base whitespace-nowrap flex-shrink-0">
+            <h1 className="text-[#27486b] font-semibold text-sm md:text-base whitespace-nowrap flex-shrink-0">
               🍳 {t('common.kitchen_orders')}
             </h1>
-            <div className="hidden sm:flex items-center gap-1 text-xs text-gray-300 flex-shrink-0">
-              <span>{t('common.pending')}: <span className="font-bold text-yellow-400">{pendingCount}</span></span>
-              <span className="text-gray-500 mx-0.5">|</span>
-              <span>{t('common.completed')}: <span className="font-bold text-green-400">{completedCount}</span></span>
+            <div className="hidden sm:flex items-center gap-1 text-xs text-[#6f8fae] flex-shrink-0">
+              <span>{t('common.pending')}: <span className="font-bold text-[#5f95ca]">{pendingCount}</span></span>
+              <span className="text-[#b2cae4] mx-0.5">|</span>
+              <span>{t('common.completed')}: <span className="font-bold text-[#4f8fcb]">{completedCount}</span></span>
             </div>
-            <div className="sm:hidden flex items-center gap-0.5 text-[10px] text-gray-400 flex-shrink-0">
+            <div className="sm:hidden flex items-center gap-0.5 text-[10px] text-[#7d9fbe] flex-shrink-0">
               <span>{pendingCount}</span>
               <span className="text-gray-500">|</span>
               <span>{completedCount}</span>
@@ -391,13 +391,13 @@ export default function KitchenOrders() {
                 } catch {}
                 if (next) playNotificationSound();
               }}
-              className={`px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${audioEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
+              className={`px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${audioEnabled ? 'bg-[#78b6f1] text-white' : 'bg-[#d8e9fb] text-[#5f88ae] hover:bg-[#cfe3f9]'}`}
               title={t('common.sound_toggle')}
             >
               {audioEnabled ? t('common.audio_sound_on') : t('common.audio_sound_off')}
             </button>
             <button onClick={() => { localStorage.removeItem('auth'); router.push('/login-kitchen'); }}
-              className="bg-red-600 hover:bg-red-700 text-white px-1.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap flex-shrink-0"
+              className="bg-rose-500 hover:bg-rose-600 text-white px-1.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap flex-shrink-0"
             >
               {t('common.logout')}
             </button>
@@ -406,20 +406,20 @@ export default function KitchenOrders() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
+      <div className="bg-white border-b border-[#d9ebff] px-6 py-3">
         <div className="flex gap-2">
           <button onClick={() => setActiveTab('pending')}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'pending' ? 'bg-[#78b6f1] text-white' : 'bg-[#edf6ff] text-[#5f88ae] hover:bg-[#e2f1ff]'}`}>
             🕑 {t('common.orders_pending')} ({pendingCount})
           </button>
           <button onClick={() => setActiveTab('completed')}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'completed' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${activeTab === 'completed' ? 'bg-[#78b6f1] text-white' : 'bg-[#edf6ff] text-[#5f88ae] hover:bg-[#e2f1ff]'}`}>
             ✅ {t('common.orders_completed')} ({completedCount})
           </button>
         </div>
       </div>
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-6 overflow-y-auto bg-white">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
             <p className="font-semibold">{t('common.error')}</p><p>{error}</p>
@@ -428,19 +428,19 @@ export default function KitchenOrders() {
 
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-white text-lg">{t('common.loading')}</div>
+            <div className="text-[#5f88ae] text-lg">{t('common.loading')}</div>
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">{activeTab === 'pending' ? '🕑' : '✅'}</div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
+            <h2 className="text-2xl font-semibold text-[#27486b] mb-2">
               {activeTab === 'pending' ? t('common.no_pending_orders') : t('common.no_completed_orders')}
             </h2>
-            <p className="text-gray-400 mb-4">
+            <p className="text-[#7d9fbe] mb-4">
               {activeTab === 'pending' ? t('common.pending_orders_hint') : t('common.completed_orders_hint')}
             </p>
             {activeTab === 'completed' && (
-              <button onClick={() => setActiveTab('pending')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              <button onClick={() => setActiveTab('pending')} className="bg-[#78b6f1] hover:bg-[#6aa8e4] text-white px-4 py-2 rounded-lg text-sm">
                 {t('common.view_pending_orders')}
               </button>
             )}
@@ -448,23 +448,23 @@ export default function KitchenOrders() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {orders.map((order) => (
-              <div key={order.id} className="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-                <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-blue-600' : 'bg-green-600'}`}>
+              <div key={order.id} className="bg-white/90 border border-[#d9ebff] rounded-xl shadow-[0_10px_24px_rgba(125,151,210,0.16)] overflow-hidden">
+                <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-[#eef6ff]' : 'bg-[#f3f9ff]'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-white font-bold text-lg">🏠 {formatTableLabel(order.table_name, order.table_id)}</h3>
+                    <h3 className="text-[#27486b] font-bold text-lg">🏠 {formatTableLabel(order.table_name, order.table_id)}</h3>
                     <div className="text-right">
-                      <span className={`text-sm px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-yellow-500 text-white animate-pulse' : 'bg-green-700 text-white'}`}>
+                      <span className={`text-sm px-2 py-1 rounded-full ${order.status === 'pending' ? 'bg-[#8fc6f7] text-white animate-pulse' : 'bg-[#78b6f1] text-white'}`}>
                         {order.status === 'pending' ? t('common.pending_status') : t('common.completed_status')}
                       </span>
-                      <div className="text-white text-xs mt-1">{new Date(order.created_at).toLocaleTimeString(locale === 'ko' ? 'ko-KR' : locale === 'vi' ? 'vi-VN' : 'en-US')}</div>
+                      <div className="text-[#6f8fae] text-xs mt-1">{new Date(order.created_at).toLocaleTimeString(locale === 'ko' ? 'ko-KR' : locale === 'vi' ? 'vi-VN' : 'en-US')}</div>
                     </div>
                   </div>
-                  <p className="text-white text-sm mt-1">📦 {order.order_items?.length || 0}{t('common.items_count')}</p>
+                  <p className="text-[#5f88ae] text-sm mt-1">📦 {order.order_items?.length || 0}{t('common.items_count')}</p>
                 </div>
 
                 <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
                   {(order.order_items || []).map((item) => (
-                    <div key={item.id} className="bg-gray-700 rounded-lg p-3 flex items-start gap-3">
+                    <div key={item.id} className="bg-[#f8fcff] border border-[#e1efff] rounded-lg p-3 flex items-start gap-3">
                       {item.product_image_url ? (
                         <div className="w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
                           <img src={item.product_image_url} alt={item.product_name || 'product'} className="w-full h-full object-cover" />
@@ -475,25 +475,27 @@ export default function KitchenOrders() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-white text-sm truncate mb-1">{item.product_name || 'Unknown'}</p>
-                        <p className="text-gray-400 text-xs mb-1">📂 {item.category || t('common.uncategorized')}</p>
+                        <p className="font-bold text-[#2f4f74] mb-1 whitespace-nowrap text-[clamp(15px,2.8vw,22px)] leading-none">
+                          {item.product_name || 'Unknown'}
+                        </p>
+                        <p className="hidden">📂 {item.category || t('common.uncategorized')}</p>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-blue-400 text-sm font-bold">× {item.quantity}{t('common.quantity_unit')}</p>
+                          <p className="text-[#5f95ca] text-sm font-bold">× {item.quantity}{t('common.quantity_unit')}</p>
                         </div>
                         {/* Note display */}
                         {item.note && (
-                          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg px-2 py-1 mt-1">
-                            <p className="text-yellow-300 text-xs">{t('common.note_symbol')} {item.note}</p>
+                          <div className="bg-[#eef6ff] border border-[#d6e9ff] rounded-lg px-2 py-1 mt-1">
+                            <p className="text-[#5f88ae] text-xs">{t('common.note_symbol')} {item.note}</p>
                           </div>
                         )}
                       </div>
                       {item.status !== 'completed' ? (
                         <button onClick={() => markItemComplete(item.id, order.id)}
-                          className='flex-shrink-0 self-center bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold'>
+                          className='flex-shrink-0 self-center bg-[#78b6f1] hover:bg-[#6aa8e4] text-white text-xs px-3 py-1.5 rounded-lg font-bold'>
                           ✅ {t('common.mark_complete')}
                         </button>
                       ) : (
-                        <span className='flex-shrink-0 self-center text-green-400 text-sm font-bold'>✅</span>
+                        <span className='flex-shrink-0 self-center text-[#5f95ca] text-sm font-bold'>✅</span>
                       )}
                     </div>
                   ))}

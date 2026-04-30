@@ -40,7 +40,7 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 py-16">
+      <main className="min-h-screen bg-white py-16">
         <div className="container">
           <div className="card text-center">{t('common.loading')}</div>
         </div>
@@ -49,34 +49,41 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 py-10">
-      <div className="container">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-soft sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-sky-600">{t('common.admin')} Dashboard</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">{t('common.product')} & {t('common.sales_history')}</h1>
+    <main className="min-h-screen bg-white">
+      {/* 슬림 상단바 */}
+      <header className="sticky top-0 z-40 border-b border-[#d9ebff] bg-white/80 backdrop-blur-xl shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#5f95ca] hidden sm:block whitespace-nowrap">{t('common.admin')}</span>
+            <div className="flex gap-1 flex-shrink-0">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                    activeTab === tab.id
+                      ? 'bg-[#78b6f1] text-white'
+                      : 'text-slate-600 hover:bg-[#eef6ff]'
+                  }`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={
-                  activeTab === tab.id
-                    ? 'button-primary'
-                    : 'button-secondary'
-                }
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <LanguageSelector />
-            <button className="button-secondary" onClick={handleLogout}>
+            <button
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-[#eef6ff] transition-colors whitespace-nowrap flex-shrink-0"
+              onClick={handleLogout}
+            >
               {t('common.logout')}
             </button>
           </div>
         </div>
+      </header>
 
+      <div className="max-w-7xl mx-auto px-4 py-4">
         {activeTab === 'products' && <ProductAdmin />}
         {activeTab === 'sales' && <SalesHistory />}
         {activeTab === 'settings' && <AdminSettings />}

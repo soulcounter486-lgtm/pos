@@ -108,17 +108,17 @@ export default function SalesHistory() {
 
       <section className="card">
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-3xl bg-slate-50 p-5">
+          <div className="rounded-3xl border border-[#deedff] bg-[#f6faff] p-5">
             <p className="text-sm text-slate-500">{t('common.total_payment_count')}</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{sales.length}</p>
           </div>
-          <div className="rounded-3xl bg-slate-50 p-5">
+          <div className="rounded-3xl border border-[#deedff] bg-[#f6faff] p-5">
             <p className="text-sm text-slate-500">{t('common.total_sales')}</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{totalSales.toLocaleString()} {t('common.currency')}</p>
           </div>
         </div>
 
-        {message ? <p className="text-sm text-red-600">{message}</p> : null}
+        {message ? <p className="text-sm text-rose-600">{message}</p> : null}
 
         {loading ? (
           <p className="text-slate-600">{t('common.loading_sales')}</p>
@@ -126,7 +126,7 @@ export default function SalesHistory() {
           <p className="text-slate-600">{t('common.no_sales_data')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <table className="min-w-full divide-y divide-[#deedff] text-sm">
               <thead>
                 <tr>
                   <th className="table-header px-4 py-3">{t('common.payment_datetime')}</th>
@@ -136,7 +136,7 @@ export default function SalesHistory() {
                   <th className="table-header px-4 py-3">{t('common.total_amount')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-[#deedff]">
                 {sales.map((sale) => (
                   <tr key={sale.id}>
                     <td className="px-4 py-4 text-slate-600">{formatLocaleDateTime(sale.created_at)}</td>

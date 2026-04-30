@@ -389,22 +389,22 @@ export default function ProductAdmin() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap gap-2 border-b border-slate-200">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1 border-b border-[#d9ebff] pb-0">
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'products' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
+          className={`px-3 py-1.5 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'products' ? 'border-b-2 border-[#78b6f1] text-[#5f95ca] bg-[#eef6ff]' : 'text-slate-500 hover:text-slate-700'}`}
           onClick={() => setActiveTab('products')}
         >
           {t('common.productManagement')}
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'categories' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
+          className={`px-3 py-1.5 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'categories' ? 'border-b-2 border-[#78b6f1] text-[#5f95ca] bg-[#eef6ff]' : 'text-slate-500 hover:text-slate-700'}`}
           onClick={() => setActiveTab('categories')}
         >
           {t('common.categoryManagement')}
         </button>
         <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'tables' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-600'}`}
+          className={`px-3 py-1.5 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'tables' ? 'border-b-2 border-[#78b6f1] text-[#5f95ca] bg-[#eef6ff]' : 'text-slate-500 hover:text-slate-700'}`}
           onClick={() => setActiveTab('tables')}
         >
           {t('common.tableManagement')}
@@ -413,31 +413,24 @@ export default function ProductAdmin() {
 
       {activeTab === 'products' ? (
         <section className="card">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.productManagement')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.manage_products_desc')}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold text-slate-800">{t('common.productManagement')}</h2>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
+                {t('common.totalStock', { count: stockSummary })}
+              </span>
             </div>
-            <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-              {t('common.totalStock', { count: stockSummary })}
-            </div>
-          </div>
-
-          <div className="mt-6">
             <button
-              onClick={() => {
-                resetProductForm();
-                setIsModalOpen(true);
-              }}
-              className="button-primary"
+              onClick={() => { resetProductForm(); setIsModalOpen(true); }}
+              className="button-primary text-sm py-1.5 px-3"
             >
-              {t('common.addProduct')}
+              + {t('common.addProduct')}
             </button>
           </div>
 
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="fixed inset-0 bg-black/35 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white/95 border border-[#d9ebff] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
                 <h3 className="text-lg font-semibold mb-4">
                   {productForm.id ? t('common.editProduct') : t('common.addProduct')}
                 </h3>
@@ -554,14 +547,12 @@ export default function ProductAdmin() {
         </section>
       ) : activeTab === 'categories' ? (
         <section className="card">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.categoryManagement')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.manage_categories_desc')}</p>
-            </div>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-slate-800">{t('common.categoryManagement')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('common.manage_categories_desc')}</p>
           </div>
 
-          <form onSubmit={handleCategorySubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
+          <form onSubmit={handleCategorySubmit} className="grid gap-3 sm:grid-cols-2">
             <label className="field-label">
               {t('common.categoryName')}
               <input
@@ -608,14 +599,12 @@ export default function ProductAdmin() {
         </section>
       ) : (
         <section className="card">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.tableManagement')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.manage_tables_desc')}</p>
-            </div>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-slate-800">{t('common.tableManagement')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('common.manage_tables_desc')}</p>
           </div>
 
-          <form onSubmit={handleTableSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
+          <form onSubmit={handleTableSubmit} className="grid gap-3 sm:grid-cols-2">
             <label className="field-label">
               {t('common.tableNumber')}
               <input
@@ -663,102 +652,70 @@ export default function ProductAdmin() {
 
       {activeTab === 'products' ? (
         <section className="card">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.productList')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.viewProductsDesc')}</p>
-            </div>
-            <button className="button-secondary" onClick={fetchProducts}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-800">{t('common.productList')}</h2>
+            <button className="button-secondary text-xs py-1 px-2" onClick={fetchProducts}>
               {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">{t('common.loadingProducts')}</div>
+            <div className="text-center py-4 text-sm text-slate-500">{t('common.loadingProducts')}</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead>
-                  <tr className="flex items-center p-1 border-b border-slate-200">
-                    <th className="w-[100px] px-2 py-1">{t('common.photo')}</th>
-                    <th className="w-2/6 px-2 py-1">{t('common.productInfo')}</th>
-                    <th className="w-1/6 px-2 py-1">{t('common.category')}</th>
-                    <th className="w-1/8 px-2 py-1">{t('common.amount')}</th>
-                    <th className="w-1/8 px-2 py-1">{t('common.taxRate')}</th>
-                    <th className="w-1/8 px-2 py-1">{t('common.stock')}</th>
-                    <th className="w-32 px-2 py-1">{t('common.edit')}</th>
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#f3f9ff] border-y border-[#deedff]">
+                  <tr>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 w-14">{t('common.photo')}</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500">{t('common.productInfo')}</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 hidden sm:table-cell">{t('common.category')}</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500">{t('common.amount')}</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 hidden md:table-cell">{t('common.taxRate')}</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 hidden md:table-cell">{t('common.stock')}</th>
+                    <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 w-24"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100">
                   {products.map((product) => (
-                    <tr key={product.id} className="flex items-center h-24 p-1 border-b border-slate-200">
-                      <td className="w-[140px] px-2 py-1">
+                    <tr key={product.id} className="hover:bg-[#f8fcff] transition-colors">
+                      <td className="px-2 py-1.5">
                         {product.image_url ? (
                           <img
                             src={product.image_url}
                             alt={product.name}
-                            style={{
-                              width: '100%',
-                              height: '140px',
-                              objectFit: 'contain',
-                              borderRadius: '8px',
-                            }}
+                            className="w-10 h-10 object-cover rounded"
                           />
                         ) : (
-                          <div style={{ height: '140px' }} className="w-full bg-slate-200 rounded flex items-center justify-center text-slate-500">
+                          <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-[9px] text-slate-400 text-center leading-tight">
                             {t('common.noProductImage')}
                           </div>
                         )}
                       </td>
-                      <td className="w-2/6 px-2 py-1">
-                        <div className="flex flex-col justify-center h-full">
-                          <div className="font-medium text-sm">{product.name}</div>
-                        </div>
+                      <td className="px-2 py-1.5">
+                        <div className="font-medium text-slate-800 text-xs">{product.name}</div>
                       </td>
-                      <td className="w-1/6 px-2 py-1">
-                        <div className="flex flex-col justify-center h-full">
-                          <div className="text-xs text-slate-600">{product.category}</div>
-                        </div>
+                      <td className="px-2 py-1.5 hidden sm:table-cell">
+                        <span className="text-xs text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{product.category}</span>
                       </td>
-                      <td className="w-1/8 px-2 py-1">
-                        <div className="flex flex-col justify-center h-full">
-                           <div className="text-xs text-slate-600">{product.price.toLocaleString()} {t('common.currency')}</div>
-                        </div>
+                      <td className="px-2 py-1.5">
+                        <div className="text-xs font-medium text-slate-700">{product.price.toLocaleString()}</div>
                       </td>
-                      <td className="w-1/8 px-2 py-1">
-                        <div className="flex flex-col justify-center h-full">
-                          <div className="text-xs text-slate-600">
-                            {getDisplayTaxRate(product)}
-                          </div>
-                        </div>
+                      <td className="px-2 py-1.5 hidden md:table-cell">
+                        <div className="text-xs text-slate-500">{getDisplayTaxRate(product)}</div>
                       </td>
-                      <td className="w-1/8 px-2 py-1">
-                        <div className="flex flex-col justify-center h-full">
-                          <div className="text-xs text-slate-600">{t('common.stock')}: {product.stock}</div>
-                        </div>
+                      <td className="px-2 py-1.5 hidden md:table-cell">
+                        <div className="text-xs text-slate-500">{product.stock}</div>
                       </td>
-                      <td className="w-48 px-2 py-1 flex items-center justify-end">
-                        <div className="flex gap-3 flex-row">
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-1 justify-end">
                           <button
-                            className="button-secondary text-xs"
-                            style={{
-                              padding: '2px 8px',
-                              minWidth: '60px',
-                              height: '28px',
-                              fontSize: '11px',
-                            }}
+                            className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
                             onClick={() => handleProductEdit(product)}
                           >
                             {t('common.edit')}
                           </button>
                           <button
-                            className="button-secondary text-xs"
-                            style={{
-                              padding: '2px 8px',
-                              minWidth: '60px',
-                              height: '28px',
-                              fontSize: '11px',
-                            }}
+                            className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
                             onClick={() => handleProductDelete(product.id)}
                           >
                             {t('common.delete')}
@@ -774,42 +731,41 @@ export default function ProductAdmin() {
         </section>
       ) : activeTab === 'categories' ? (
         <section className="card">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.categoryList')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.viewCategoriesDesc')}</p>
-            </div>
-            <button className="button-secondary" onClick={fetchCategories}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-800">{t('common.categoryList')}</h2>
+            <button className="button-secondary text-xs py-1 px-2" onClick={fetchCategories}>
               {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">{t('common.loadingCategories')}</div>
+            <div className="text-center py-4 text-sm text-slate-500">{t('common.loadingCategories')}</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead>
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#f3f9ff] border-y border-[#deedff]">
                   <tr>
-                    <th className="table-header px-4 py-3">{t('common.categoryName')}</th>
-                    <th className="table-header px-4 py-3">{t('common.taxRate')}</th>
-                    <th className="table-header px-4 py-3">{t('common.edit')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">{t('common.categoryName')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">{t('common.taxRate')}</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 w-28"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100">
                   {categories.map((category) => (
-                    <tr key={category.id}>
-                      <td className="px-4 py-4 text-slate-900">{category.name}</td>
-                      <td className="px-4 py-4 text-slate-600">
+                    <tr key={category.id} className="hover:bg-[#f8fcff] transition-colors">
+                      <td className="px-3 py-2 text-sm text-slate-800">{category.name}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">
                         {(category.tax_rate ? category.tax_rate * 100 : 10).toFixed(1)}%
                       </td>
-                      <td className="px-4 py-4 space-x-2">
-                        <button className="button-secondary" onClick={() => handleCategoryEdit(category)}>
-                          {t('common.edit')}
-                        </button>
-                        <button className="button-secondary" onClick={() => handleCategoryDelete(category.id)}>
-                          {t('common.delete')}
-                        </button>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 justify-end">
+                          <button className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors" onClick={() => handleCategoryEdit(category)}>
+                            {t('common.edit')}
+                          </button>
+                          <button className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors" onClick={() => handleCategoryDelete(category.id)}>
+                            {t('common.delete')}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -820,46 +776,45 @@ export default function ProductAdmin() {
         </section>
       ) : (
         <section className="card">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">{t('common.tableList')}</h2>
-              <p className="mt-2 text-slate-600">{t('common.viewTablesDesc')}</p>
-            </div>
-            <button className="button-secondary" onClick={fetchTables}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-800">{t('common.tableList')}</h2>
+            <button className="button-secondary text-xs py-1 px-2" onClick={fetchTables}>
               {t('common.refresh')}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center text-slate-600">{t('common.loadingTables')}</div>
+            <div className="text-center py-4 text-sm text-slate-500">{t('common.loadingTables')}</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead>
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#f3f9ff] border-y border-[#deedff]">
                   <tr>
-                    <th className="table-header px-4 py-3">{t('common.number')}</th>
-                    <th className="table-header px-4 py-3">{t('common.tableName')}</th>
-                    <th className="table-header px-4 py-3">{t('common.status')}</th>
-                    <th className="table-header px-4 py-3">{t('common.edit')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">{t('common.number')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">{t('common.tableName')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">{t('common.status')}</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 w-28"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100">
                   {tables.map((table) => (
-                    <tr key={table.id}>
-                      <td className="px-4 py-4 text-slate-900">{table.id}</td>
-                      <td className="px-4 py-4 text-slate-600">{table.name}</td>
-                      <td className="px-4 py-4 text-slate-600">
-                        <span className={`px-2 py-1 rounded text-xs ${table.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <tr key={table.id} className="hover:bg-[#f8fcff] transition-colors">
+                      <td className="px-3 py-2 text-xs text-slate-500">{table.id}</td>
+                      <td className="px-3 py-2 text-sm text-slate-800">{table.name}</td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${table.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {table.status === 'available' ? t('common.available') : t('common.occupied')}
                         </span>
                       </td>
-                      <td className="px-4 py-4 space-x-2">
-                        <button className="button-secondary" onClick={() => handleTableEdit(table)}>
-                          {t('common.edit')}
-                        </button>
-                        <button className="button-secondary" onClick={() => handleTableDelete(table.id)}>
-                          {t('common.delete')}
-                        </button>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 justify-end">
+                          <button className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors" onClick={() => handleTableEdit(table)}>
+                            {t('common.edit')}
+                          </button>
+                          <button className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors" onClick={() => handleTableDelete(table.id)}>
+                            {t('common.delete')}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

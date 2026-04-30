@@ -122,7 +122,7 @@ export default function AdminSettings() {
   return (
     <div className="space-y-8">
       {message && (
-        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${messageType === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${messageType === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-[#eef6ff] text-[#4f8fcb]'}`}>
           {message}
         </div>
       )}
@@ -158,10 +158,10 @@ export default function AdminSettings() {
             />
           </label>
           {hasStaffHeaderCol === false && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-xs text-red-700 font-semibold mb-2">{t('common.db_column_needed')}</p>
-              <p className="text-xs text-red-600 mb-2">{t('common.db_column_sql_guide')}</p>
-              <pre className="text-xs bg-white rounded p-2 border border-red-200 text-slate-700 font-mono overflow-x-auto">
+            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+              <p className="text-xs text-rose-700 font-semibold mb-2">{t('common.db_column_needed')}</p>
+              <p className="text-xs text-rose-600 mb-2">{t('common.db_column_sql_guide')}</p>
+              <pre className="text-xs bg-white rounded p-2 border border-rose-200 text-slate-700 font-mono overflow-x-auto">
                 {`ALTER TABLE settings\n  ADD COLUMN IF NOT EXISTS staff_header_text\n  text NOT NULL DEFAULT '${t('common.company_icon_pos')}';`}
               </pre>
             </div>
@@ -208,9 +208,9 @@ export default function AdminSettings() {
 
         {/* QR 미리보기 안내 */}
         {(form.bank_name || form.account_number) && (
-          <div className="card bg-blue-50 border border-blue-100">
-            <h3 className="text-sm font-semibold text-blue-700 mb-2">{t('common.qr_preview')}</h3>
-            <pre className="text-xs text-blue-600 whitespace-pre-wrap font-mono bg-white rounded-lg p-3 border border-blue-100">
+          <div className="card bg-[#eef6ff] border border-[#d6e9ff]">
+            <h3 className="text-sm font-semibold text-[#4f8fcb] mb-2">{t('common.qr_preview')}</h3>
+            <pre className="text-xs text-[#5f88ae] whitespace-pre-wrap font-mono bg-white rounded-lg p-3 border border-[#d6e9ff]">
               {form.receipt_header}
               {'\n'}{t('common.bank_name_label')} {form.bank_name}
               {'\n'}{t('common.account_number_label')} {form.account_number}
@@ -226,10 +226,10 @@ export default function AdminSettings() {
       </form>
 
       {/* 설정 테이블 생성 안내 */}
-      <div className="card bg-amber-50 border border-amber-100">
-        <h3 className="text-sm font-semibold text-amber-700 mb-2">{t('common.settings_table_guide')}</h3>
-        <p className="text-xs text-amber-600 mb-3">{t('common.settings_table_desc')}</p>
-        <pre className="text-xs bg-white rounded-lg p-3 border border-amber-200 overflow-x-auto text-slate-700 font-mono">
+      <div className="card bg-[#f6faff] border border-[#d6e9ff]">
+        <h3 className="text-sm font-semibold text-[#4f8fcb] mb-2">{t('common.settings_table_guide')}</h3>
+        <p className="text-xs text-[#5f88ae] mb-3">{t('common.settings_table_desc')}</p>
+        <pre className="text-xs bg-white rounded-lg p-3 border border-[#d6e9ff] overflow-x-auto text-slate-700 font-mono">
 {`CREATE TABLE IF NOT EXISTS settings (
   id text PRIMARY KEY DEFAULT 'default',
   bank_name text NOT NULL DEFAULT '',

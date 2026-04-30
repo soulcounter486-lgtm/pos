@@ -61,140 +61,104 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Top right language selector */}
-        <div className="flex justify-end mb-4">
-          <LanguageSelector />
-        </div>
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#c9e6ff] via-[#b8d0ff] to-[#c9bcff] p-4 text-slate-700">
+      <div className="pointer-events-none absolute -left-28 top-14 h-80 w-80 rounded-full bg-white/35 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-6 h-72 w-72 rounded-full bg-[#d6ccff]/45 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-1/3 h-60 w-60 -translate-x-1/2 rounded-full bg-[#8ad7ff]/30 blur-3xl" />
 
-        {/* Logo/Icon Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
+      <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl items-center justify-center gap-6">
+        <section className="hidden w-full max-w-xs rounded-[2rem] border border-white/40 bg-white/20 p-10 shadow-[0_28px_60px_rgba(124,145,205,0.35)] backdrop-blur-2xl lg:block">
+          <div className="mb-14 flex h-36 items-center justify-center rounded-[1.6rem] bg-white/20">
+            <div className="relative">
+              <div className="h-14 w-20 rounded-full bg-white/85 shadow-lg" />
+              <div className="absolute -right-4 -top-2 h-9 w-9 rounded-full bg-[#ffe98a]/90" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">POS {t('common.settings')}</h1>
-          <p className="text-gray-600">{t('common.staff')} & {t('common.admin')} {t('common.login')}</p>
-        </div>
+          <h2 className="text-4xl font-light leading-tight text-white/90">POS {t('common.settings')}</h2>
+          <p className="mt-6 text-white/85">{t('common.staff')} & {t('common.admin')} {t('common.login')}</p>
+        </section>
 
-        {/* Login Card */}
-        <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 p-8 transform transition-all duration-300 hover:shadow-3xl">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">{t('common.login')}</h2>
-              <p className="text-gray-600 text-sm">{t('common.login_enter_account_info')}</p>
+        <section className="w-full max-w-md">
+          <div className="mb-4 flex justify-end">
+            <div className="rounded-full border border-white/40 bg-white/20 px-3 py-1 backdrop-blur-xl">
+              <LanguageSelector />
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-white/40 bg-white/25 p-8 shadow-[0_28px_70px_rgba(124,145,205,0.4)] backdrop-blur-2xl sm:p-10">
+            <div className="mb-8 flex items-center justify-between text-[#4f7095]">
+              <button type="button" className="text-lg leading-none opacity-70" aria-hidden="true">
+                ⋮
+              </button>
+              <p className="text-xl font-semibold tracking-wide">{t('common.login')}</p>
+              <button type="button" className="text-2xl leading-none opacity-70" aria-hidden="true">
+                +
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* User ID Field */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('common.user_id')}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <input
-                    className="block w-full pl-12 pr-4 py-4 border border-gray-300 rounded-2xl bg-gray-50/50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-gray-900 placeholder-gray-500"
-                    type="text"
-                    value={userId}
-                    onChange={(event) => setUserId(event.target.value)}
-                    placeholder={t('common.enter_user_id')}
-                    required
-                  />
-                </div>
+            <div className="mb-8 text-center">
+              <p className="text-7xl font-semibold leading-none text-[#5a9dd6] drop-shadow-[0_8px_20px_rgba(107,163,219,0.35)]">POS</p>
+              <p className="mt-2 text-2xl font-medium text-[#4f7095]">{t('common.settings')}</p>
+              <p className="mt-1 text-sm text-[#6887a7]">{t('common.login_enter_account_info')}</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-[#54708f]">{t('common.user_id')}</label>
+                <input
+                  className="block w-full rounded-2xl border border-white/45 bg-white/45 px-4 py-3 text-slate-700 placeholder:text-slate-400 shadow-[0_10px_20px_rgba(136,167,220,0.2)] transition focus:border-[#77b7ea] focus:bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#9bd7ff]/60"
+                  type="text"
+                  value={userId}
+                  onChange={(event) => setUserId(event.target.value)}
+                  placeholder={t('common.enter_user_id')}
+                  required
+                />
               </div>
 
-              {/* Password Field */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('common.password')}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    className="block w-full pl-12 pr-4 py-4 border border-gray-300 rounded-2xl bg-gray-50/50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-gray-900 placeholder-gray-500"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder={t('common.enter_password')}
-                    required
-                  />
-                </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-[#54708f]">{t('common.password')}</label>
+                <input
+                  className="block w-full rounded-2xl border border-white/45 bg-white/45 px-4 py-3 text-slate-700 placeholder:text-slate-400 shadow-[0_10px_20px_rgba(136,167,220,0.2)] transition focus:border-[#77b7ea] focus:bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#9bd7ff]/60"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={t('common.enter_password')}
+                  required
+                />
               </div>
 
-              {/* Error Message */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-sm text-red-700">{t('common.login_invalid_credentials')}</p>
-                  </div>
+                <div className="rounded-2xl border border-rose-200/80 bg-rose-50/80 px-4 py-3 text-sm text-rose-700">
+                  {t('common.login_invalid_credentials')}
                 </div>
               )}
 
-              {/* Login Button */}
               <button
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="mt-2 w-full rounded-full bg-gradient-to-r from-[#79def7] to-[#7ec2ff] px-6 py-3 text-base font-semibold text-white shadow-[0_14px_26px_rgba(102,170,236,0.45)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                 type="submit"
                 disabled={loading}
               >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {t('common.logging_in')}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    {t('common.login')}
-                  </div>
-                )}
+                {loading ? t('common.logging_in') : t('common.login')}
               </button>
             </form>
-
-            {/* Demo Accounts Info */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center mb-3">{t('common.demo_accounts')}</p>
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="font-medium text-gray-900">{t('common.admin_role')}</p>
-                  <p className="text-gray-600">admin / 123456</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="font-medium text-gray-900">{t('common.staff_role')}</p>
-                  <p className="text-gray-600">phocha / 1324</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="font-medium text-gray-900">{t('common.kitchen_role')}</p>
-                  <p className="text-gray-600">bep / 1324</p>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
+          <div className="mt-6 text-center text-sm text-white/70">
             © 2024 POS System. All rights reserved.
-          </p>
+          </div>
+        </section>
+      </div>
+      <div className="hidden lg:block">
+        <div className="pointer-events-none absolute right-14 top-16 grid grid-cols-3 gap-6 text-white/75">
+          <span className="text-4xl">☀️</span>
+          <span className="text-4xl">🌙</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
+          <span className="text-4xl">☁️</span>
         </div>
       </div>
     </main>
