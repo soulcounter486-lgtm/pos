@@ -414,6 +414,8 @@
     "cart_label": "Giỏ hàng",
     "order_count_unit": "đơn",
     "no_orders_yet": "Chưa có đơn hàng",
+    "select_table_prompt": "Chọn một bàn",
+    "select_table_hint": "Chi tiết đơn hàng sẽ hiển thị tại đây sau khi chọn",
     "order_create_failed": "Tạo đơn hàng thất bại",
     "merge_mode_label": "Chế độ gộp bàn",
     "merge_selected_label": "Đã chọn",
@@ -427,7 +429,14 @@
     "change_label": "Tiền thừa",
     "delete_all_label": "Xóa tất cả",
     "deleted": "Đã xóa",
-    "delete_table_orders_confirm": "Xóa tất cả đơn hàng của bàn này?"
+    "delete_table_orders_confirm": "Xóa tất cả đơn hàng của bàn này?",
+    "product_label": "Sản phẩm",
+    "in_stock": "Còn hàng",
+    "out_of_stock": "Hết hàng",
+    "select_product_prompt": "Chọn sản phẩm",
+    "kitchen_memo_optional": "Ghi chú bếp (tùy chọn)",
+    "order_count_unit_label": "đơn",
+    "merge_mode": "Chế độ gộp bàn"
   },
   "staff": {
     "pos_title": "POS Nhân viên",
