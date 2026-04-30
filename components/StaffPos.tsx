@@ -14,7 +14,8 @@ type OrderItemData = { id: string; order_id: string; product_id: string; quantit
 type Settings = { bank_name: string; account_number: string; account_holder: string; receipt_header: string; staff_header_text: string };
 
 export default function StaffPos() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const localeCode = locale === 'ko' ? 'ko-KR' : locale === 'vi' ? 'vi-VN' : 'en-US';
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartMemos, setCartMemos] = useState<Record<string, string>>({});
@@ -67,6 +68,7 @@ export default function StaffPos() {
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyTableFilter, setHistoryTableFilter] = useState<string | null>(null);
   const [historyTick, setHistoryTick] = useState(0); // 패널 열 때 강제 리렌더용
+  const [confirmDeleteTableUuid, setConfirmDeleteTableUuid] = useState<string | null>(null);
 
   // PC 레이아웃 (lg+에서만 활성화)
   const [isPC, setIsPC] = useState(false);
@@ -80,7 +82,7 @@ export default function StaffPos() {
   }
   function formatHistoryTime(iso: string) {
     const d = new Date(iso);
-    return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return d.toLocaleDateString(localeCode, { month: '2-digit', day: '2-digit' }) + ' ' + d.toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
   function renderHistoryPanel() {
     if (!showHistory) return null;
@@ -195,7 +197,7 @@ export default function StaffPos() {
                         <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
                           <div>
                             <p className="text-xs font-medium text-gray-700">{item.name}</p>
-                            <p className="text-[10px] text-gray-400">수량 × {item.quantity}</p>
+                            <p className="text-[10px] text-gray-400">{item.quantity}</p>
                           </div>
                         </div>
                       ))}
@@ -218,6 +220,24 @@ export default function StaffPos() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showTransferQR, setShowTransferQR] = useState(false);
   const [settings, setSettings] = useState<Settings>({ bank_name: '', account_number: '', account_holder: '', receipt_header: t('common.pos_restaurant'), staff_header_text: t('common.company_icon_pos') });
+  const receiptDiscountOverride = useMemo(() => {
+    if (!pendingOrders.length) return undefined;
+    let subtotal = 0;
+    pendingOrders.forEach(order => {
+      allOrderItems.filter(i => i.order_id === order.id).forEach(item => {
+        const up = (order.status === 'completed' && localItemPriceEdits[item.id] !== undefined)
+          ? localItemPriceEdits[item.id]
+          : (order.status === 'completed' && localPriceEdits[item.product_id] !== undefined)
+            ? localPriceEdits[item.product_id]
+            : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
+        subtotal += up * item.quantity;
+      });
+    });
+    const discountInput = Math.max(0, parseInt(discountStr.replace(/[^\d]/g, '') || '0', 10) || 0);
+    return discountMode === 'percent'
+      ? Math.round(subtotal * Math.min(100, discountInput) / 100)
+      : Math.min(discountInput, subtotal);
+  }, [pendingOrders, allOrderItems, localItemPriceEdits, localPriceEdits, discountStr, discountMode]);
 
   // 뒤로가기 처리
   useEffect(() => {
@@ -358,8 +378,11 @@ export default function StaffPos() {
     window.history.replaceState({ main: true }, '', '/staff');
   }
 
-  async function deleteAllOrdersForTable(tableUuid: string) {
-    if (!confirm(t('common.delete_table_orders_confirm'))) return;
+  async function deleteAllOrdersForTable(tableUuid: string, skipConfirm = false) {
+    if (!skipConfirm) {
+      setConfirmDeleteTableUuid(tableUuid);
+      return;
+    }
     setLoading(true);
     try {
       const s = getSupabase();
@@ -371,7 +394,10 @@ export default function StaffPos() {
       await fetchOrders();
       setMessage(t('common.deleted'));
     } catch (e) { console.error(e); setMessage(t('common.delete_failed')); }
-    finally { setLoading(false); }
+    finally {
+      setLoading(false);
+      setConfirmDeleteTableUuid(null);
+    }
   }
 
   // 기존 주문 아이템 수량 수정
@@ -876,6 +902,19 @@ export default function StaffPos() {
   const splitTableOrders = splitTableUuid ? allOrders.filter(o => String(o.table_id) === String(splitTableUuid) && (o.status === 'pending' || o.status === 'completed')) : [];
   const splitPending = splitTableOrders.filter(o => o.status === 'pending');
   const splitCompleted = splitTableOrders.filter(o => o.status === 'completed');
+  const isAddonOrder = (orderId: string) => {
+    if (addonOrderIds.includes(orderId)) return true;
+    const items = allOrderItems.filter(i => i.order_id === orderId);
+    return items.some(i => (i.note || '').includes('[추가]'));
+  };
+  const isServiceOrder = (orderId: string) => {
+    const items = allOrderItems.filter(i => i.order_id === orderId);
+    return items.length > 0 && items.every(i => {
+      if (localItemPriceEdits[i.id] !== undefined) return localItemPriceEdits[i.id] === 0;
+      const unitPrice = i.unit_price || (i.quantity > 0 ? i.price / i.quantity : i.price);
+      return unitPrice === 0;
+    });
+  };
   const computeSplitOrderTotal = (order: OrderData) => allOrderItems.filter(i => i.order_id === order.id).reduce((s, item) => {
     const isCompleted = order.status === 'completed';
     const up = isCompleted
@@ -890,15 +929,9 @@ export default function StaffPos() {
   const splitTotal = splitPendingTotal + splitCompletedTotal;
 
   // ===== PC 우측패널용 풍부한 주문상세 데이터 (모바일과 동일 로직) =====
-  const pcBaseCompletedOrders = splitCompleted.filter(o => !addonOrderIds.includes(o.id));
-  const pcAddonCompletedOrders = splitCompleted.filter(o => addonOrderIds.includes(o.id));
-  const pcServiceCompletedOrders = pcAddonCompletedOrders.filter(o => {
-    const items = allOrderItems.filter(i => i.order_id === o.id);
-    return items.length > 0 && items.every(i => {
-      if (localItemPriceEdits[i.id] !== undefined) return localItemPriceEdits[i.id] === 0;
-      return i.price === 0;
-    });
-  });
+  const pcServiceCompletedOrders = splitCompleted.filter(o => isServiceOrder(o.id));
+  const pcBaseCompletedOrders = splitCompleted.filter(o => !isAddonOrder(o.id) && !isServiceOrder(o.id));
+  const pcAddonCompletedOrders = splitCompleted.filter(o => isAddonOrder(o.id));
   const pcAddonNormalCompletedOrders = pcAddonCompletedOrders.filter(o => !pcServiceCompletedOrders.map(s => s.id).includes(o.id));
   const pcMergedCompletedItems = (() => {
     const map = new Map<string, { virtualId: string; productId: string; totalQty: number; unitPrice: number; notes: string[]; }>();
@@ -977,7 +1010,7 @@ export default function StaffPos() {
             </div>
           )
         ) : (
-          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}</span>
         )}
       </div>
     );
@@ -1046,7 +1079,7 @@ export default function StaffPos() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: Math.max(-mitem.totalQty, (prev['merged-' + mitem.productId] || 0) - 1) })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">−</button>
-                        <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}{t('common.unit')}</span>
+                        <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}</span>
                         <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: (prev['merged-' + mitem.productId] || 0) + 1 })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-green-100 hover:text-green-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">+</button>
                         <button onClick={() => { const vid = mitem.virtualId; if (editingPriceId === vid) { setEditingPriceId(null); } else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">✏️</button>
                         <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || t('common.product') } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">{t('common.add_button')}</button>
@@ -1071,7 +1104,7 @@ export default function StaffPos() {
         {pcAddonNormalCompletedOrders.map(order => {
           const items = allOrderItems.filter(i => i.order_id === order.id);
           if (items.length === 0) return null;
-          const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+          const orderTime = new Date(order.created_at).toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit' });
           return (
             <div key={order.id} className='bg-white rounded-xl shadow-sm border border-green-200 overflow-hidden'>
               <div className='px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between'>
@@ -1097,7 +1130,7 @@ export default function StaffPos() {
                           <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || t('common.product')}</p>
                           <p className='text-[10px] text-gray-400'>{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                         </div>
-                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}{t('common.unit')}</span>
+                        <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}</span>
                         <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0'>✏️</button>
                       </div>
                       {editingPriceId === item.id && (
@@ -1118,7 +1151,7 @@ export default function StaffPos() {
         {pcServiceCompletedOrders.map(order => {
           const items = allOrderItems.filter(i => i.order_id === order.id);
           if (items.length === 0) return null;
-          const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+          const orderTime = new Date(order.created_at).toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit' });
           return (
             <div key={order.id} className="bg-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
               <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
@@ -1149,7 +1182,7 @@ export default function StaffPos() {
                           <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
                           <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                         </div>
-                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}{t('common.unit')}</span>
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}</span>
                         <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0">✏️</button>
                       </div>
                       {editingPriceId === item.id && (
@@ -1266,11 +1299,11 @@ export default function StaffPos() {
     subtotal = Math.round(subtotal);
     taxAmount = Math.round(taxAmount);
     const discountInput = Math.max(0, parseInt(discountStr.replace(/[^\d]/g, '') || '0', 10) || 0);
-    const grossBeforeDiscount = subtotal + taxAmount;
+    const discountBase = subtotal;
     const discount = discountMode === 'percent'
-      ? Math.round(grossBeforeDiscount * Math.min(100, discountInput) / 100)
-      : Math.min(discountInput, grossBeforeDiscount);
-    const payable = Math.max(0, grossBeforeDiscount - discount);
+      ? Math.round(discountBase * Math.min(100, discountInput) / 100)
+      : Math.min(discountInput, discountBase);
+    const payable = Math.max(0, (subtotal - discount) + taxAmount);
     const cashReceived = parseInt(cashReceivedStr.replace(/[^\d]/g, '') || '0', 10) || 0;
     const change = cashReceived - payable;
     const hasBankInfo = settings.bank_name || settings.account_number;
@@ -1529,6 +1562,33 @@ export default function StaffPos() {
     );
   }
 
+  function renderDeleteConfirmModal() {
+    if (!confirmDeleteTableUuid) return null;
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 backdrop-blur-sm p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-[#deedff] bg-white/95 p-5 shadow-2xl">
+          <p className="text-sm font-semibold text-[#2f4f74]">{t('common.delete_table_orders_confirm')}</p>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteTableUuid(null)}
+              className="rounded-xl border border-[#d3e7ff] bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-[#f3f9ff]"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => deleteAllOrdersForTable(confirmDeleteTableUuid, true)}
+              className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600"
+            >
+              {t('common.delete_all')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ==================== 테이블 선택 ====================
   if ((!selectedTable || (pcSplit && currentView !== 'menu')) && currentView !== 'merged-orders') {
     // 합석 모드에서 선택된 테이블들의 총 금액 계산
@@ -1677,10 +1737,14 @@ export default function StaffPos() {
           settings={settings}
           localPriceEdits={localPriceEdits}
           localItemPriceEdits={localItemPriceEdits}
+          discountStr={discountStr}
+          discountMode={discountMode}
+          discountAmountOverride={receiptDiscountOverride}
         />
       )}
       {renderHistoryPanel()}
       {renderPaymentModal()}
+      {renderDeleteConfirmModal()}
       {message && (<div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
       </div>
     );
@@ -1766,7 +1830,7 @@ export default function StaffPos() {
                           {itemDone ? (
                             <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg flex-shrink-0 mt-0.5">✅ 조리완료</span>
                           ) : (
-                            <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+                            <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}</span>
                           )}
                         </div>
                       );
@@ -1835,6 +1899,7 @@ export default function StaffPos() {
         )}
 
         {renderHistoryPanel()}
+        {renderDeleteConfirmModal()}
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
@@ -1883,8 +1948,12 @@ export default function StaffPos() {
     const calcSupply = (orders: OrderData[]) => orders.reduce((s, order) => {
       return s + allOrderItems.filter(i => i.order_id === order.id).reduce((sum, item) => {
         const isCompleted = order.status === 'completed';
-        const up = (isCompleted && localPriceEdits[item.product_id] !== undefined)
-          ? localPriceEdits[item.product_id]
+        const up = isCompleted
+          ? (localItemPriceEdits[item.id] !== undefined
+              ? localItemPriceEdits[item.id]
+              : (localPriceEdits[item.product_id] !== undefined
+                  ? localPriceEdits[item.product_id]
+                  : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price))))
           : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
         const product = products.find(p => p.id === item.product_id);
         const taxRate = product?.tax_rate ?? 0.1;
@@ -1893,23 +1962,12 @@ export default function StaffPos() {
     }, 0);
     const grandSupplyTotal = calcSupply(tableOrders);
     const pendingSupplyTotal = calcSupply(tablePendingOrders);
-    const addonPreviewTotal = Object.entries(addonItemsMap).reduce((s, [, info]) => {
-      const price = localPriceEdits[info.productId] !== undefined ? localPriceEdits[info.productId] : info.unitPrice;
-      return s + price * info.qty;
-    }, 0);
-    const displaySupplyTotal = grandSupplyTotal + addonPreviewTotal;
+    const displaySupplyTotal = grandSupplyTotal;
 
     // addon 완료 주문 분리
-    const baseCompletedOrders = tableCompletedOrders.filter(o => !addonOrderIds.includes(o.id));
-    const addonCompletedOrders = tableCompletedOrders.filter(o => addonOrderIds.includes(o.id));
-    const serviceCompletedOrders = addonCompletedOrders.filter(o => {
-      const items = allOrderItems.filter(i => i.order_id === o.id);
-      // addon 항목은 item.id 기준 로컬편집 또는 DB에 저장된 가격(0)만으로 분류 — 조리완료(merged) 쪽 product_id 편집과 격리
-      return items.length > 0 && items.every(i => {
-        if (localItemPriceEdits[i.id] !== undefined) return localItemPriceEdits[i.id] === 0;
-        return i.price === 0;
-      });
-    });
+    const serviceCompletedOrders = tableCompletedOrders.filter(o => isServiceOrder(o.id));
+    const baseCompletedOrders = tableCompletedOrders.filter(o => !isAddonOrder(o.id) && !isServiceOrder(o.id));
+    const addonCompletedOrders = tableCompletedOrders.filter(o => isAddonOrder(o.id));
     const addonNormalCompletedOrders = addonCompletedOrders.filter(o => !serviceCompletedOrders.map(s => s.id).includes(o.id));
 
     // 완료 주문 항목을 product_id 기준으로 합산 (addon 제외)
@@ -2027,7 +2085,7 @@ export default function StaffPos() {
                 </div>
               )
             ) : (
-              <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}개</span>
+              <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0 mt-0.5">{item.quantity}</span>
             )}
             {editingPriceId === order.id + '_n_' + item.product_id && (
               <div className='px-4 pb-2.5 flex items-center gap-2'>
@@ -2139,7 +2197,7 @@ export default function StaffPos() {
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: Math.max(-mitem.totalQty, (prev['merged-' + mitem.productId] || 0) - 1) })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-red-100 hover:text-red-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">−</button>
-                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}{t('common.unit')}</span>
+                          <span className="text-xs font-bold text-[#374151] bg-gray-100 px-2 py-1 rounded flex-shrink-0">{mitem.totalQty + (localQtyEdits['merged-' + mitem.productId] || 0)}</span>
                           <button onClick={() => { setLocalQtyEdits(prev => ({ ...prev, ['merged-' + mitem.productId]: (prev['merged-' + mitem.productId] || 0) + 1 })); }} disabled={loading} className="w-6 h-6 bg-white hover:bg-green-100 hover:text-green-500 rounded-md flex items-center justify-center font-bold text-gray-500 text-xs transition-colors border border-gray-100">+</button>
                           <button onClick={() => { const vid = mitem.virtualId; if (editingPriceId === vid) { setEditingPriceId(null); } else { setEditingPriceId(vid); setPriceInputStr(String(localPriceEdits[mitem.productId] !== undefined ? localPriceEdits[mitem.productId] : mitem.unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors ml-0.5">✏️</button>
                           <button onClick={() => { setAddonItemsMap(prev => ({ ...prev, [mitem.virtualId]: { qty: (prev[mitem.virtualId]?.qty || 0) + 1, unitPrice: mitem.unitPrice, productId: mitem.productId, name: product?.name || t('common.product') } })); }} className="px-2 h-7 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-[10px] font-bold transition-colors ml-0.5">{t('common.add_button')}</button>
@@ -2175,13 +2233,13 @@ export default function StaffPos() {
           {addonNormalCompletedOrders.length > 0 && addonNormalCompletedOrders.map(order => {
             const items = allOrderItems.filter(i => i.order_id === order.id);
             if (items.length === 0) return null;
-            const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            const orderTime = new Date(order.created_at).toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit' });
             return (
               <div key={order.id} className='bg-white rounded-xl shadow-sm border border-green-200 overflow-hidden'>
                 <div className='px-4 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between'>
                   <div className='flex items-center gap-2'>
                     <span className='w-2 h-2 bg-green-400 rounded-full'></span>
-                    <span className='text-sm font-bold text-green-700'>추가 주문 완료</span>
+                    <span className='text-sm font-bold text-green-700'>{t('common.addon_complete')}</span>
                     <span className='text-xs text-green-400'>{orderTime}</span>
                   </div>
                   <span className='text-xs text-green-600'>
@@ -2203,7 +2261,7 @@ export default function StaffPos() {
                             <p className='text-xs font-medium text-[#374151] truncate'>{product?.name || t('common.product')}</p>
                             <p className='text-[10px] text-gray-400'>{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                           </div>
-                          <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}개</span>
+                          <span className='text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded flex-shrink-0'>{item.quantity}</span>
                           <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className='w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0'>✏️</button>
                         </div>
                         {editingPriceId === item.id && (
@@ -2223,7 +2281,7 @@ export default function StaffPos() {
           {serviceCompletedOrders.length > 0 && serviceCompletedOrders.map(order => {
             const items = allOrderItems.filter(i => i.order_id === order.id);
             if (items.length === 0) return null;
-            const orderTime = new Date(order.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            const orderTime = new Date(order.created_at).toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit' });
             return (
               <div key={order.id} className="bg-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
                 <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
@@ -2256,7 +2314,7 @@ export default function StaffPos() {
                             <p className="text-xs font-medium text-[#374151] truncate">{product?.name || t('common.product')}</p>
                             <p className="text-[10px] text-gray-400">{t('common.supply_amount')} {unitPrice.toLocaleString()} VND</p>
                           </div>
-                          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}개</span>
+                          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded flex-shrink-0">{item.quantity}</span>
                           <button onClick={() => { if (editingPriceId === item.id) { setEditingPriceId(null); } else { setEditingPriceId(item.id); setPriceInputStr(String(unitPrice)); } }} className="w-7 h-7 bg-yellow-50 hover:bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600 text-[10px] font-bold transition-colors flex-shrink-0">✏️</button>
                         </div>
                         {editingPriceId === item.id && (
@@ -2314,9 +2372,13 @@ export default function StaffPos() {
           settings={settings}
           localPriceEdits={localPriceEdits}
           localItemPriceEdits={localItemPriceEdits}
+          discountStr={discountStr}
+          discountMode={discountMode}
+          discountAmountOverride={receiptDiscountOverride}
         />
 
         {renderHistoryPanel()}
+        {renderDeleteConfirmModal()}
 
         {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-40">{message}</div>)}
       </div>
@@ -2556,10 +2618,14 @@ export default function StaffPos() {
           settings={settings}
           localPriceEdits={localPriceEdits}
           localItemPriceEdits={localItemPriceEdits}
+          discountStr={discountStr}
+          discountMode={discountMode}
+          discountAmountOverride={receiptDiscountOverride}
         />
       )}
       {renderHistoryPanel()}
       {renderPaymentModal()}
+      {renderDeleteConfirmModal()}
       {message && (<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1F2937] text-white px-5 py-3 rounded-full shadow-lg text-sm z-50">{message}</div>)}
     </div>
   );

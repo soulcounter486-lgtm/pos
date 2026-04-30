@@ -48,9 +48,25 @@ type Props = {
   settings: Settings;
   localPriceEdits?: Record<string, number>;
   localItemPriceEdits?: Record<string, number>;
+  discountStr?: string;
+  discountMode?: 'amount' | 'percent';
+  discountAmountOverride?: number;
 };
 
-export default function ReceiptModal({ isOpen, onClose, orders, orderItems, products, tableNumber, settings, localPriceEdits = {}, localItemPriceEdits = {} }: Props) {
+export default function ReceiptModal({
+  isOpen,
+  onClose,
+  orders,
+  orderItems,
+  products,
+  tableNumber,
+  settings,
+  localPriceEdits = {},
+  localItemPriceEdits = {},
+  discountStr = '0',
+  discountMode = 'amount',
+  discountAmountOverride,
+}: Props) {
   const { t, locale } = useLanguage();
   if (!isOpen) return null;
 
@@ -89,7 +105,18 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
 
   const supplyTotal = lineItems.reduce((s, i) => s + i.subtotal, 0);
   const vatTotal = lineItems.reduce((s, i) => s + Math.round(i.subtotal * i.taxRate), 0);
-  const receiptTotal = supplyTotal + vatTotal;
+  const discountBase = supplyTotal;
+  const discountInput = Math.max(0, parseInt(String(discountStr).replace(/[^\d]/g, '') || '0', 10) || 0);
+  const computedDiscountAmount = discountMode === 'percent'
+    ? Math.round(discountBase * Math.min(100, discountInput) / 100)
+    : Math.min(discountInput, discountBase);
+  const discountAmount = discountAmountOverride !== undefined
+    ? Math.max(0, Math.min(discountAmountOverride, discountBase))
+    : computedDiscountAmount;
+  const receiptTotal = Math.max(0, (supplyTotal - discountAmount) + vatTotal);
+  const discountLabel = discountMode === 'percent'
+    ? `${t('common.discount')} (${Math.min(100, discountInput)}%)`
+    : t('common.discount');
 
   // === VietQR Generation ===
   const bankNameToId: Record<string, string> = {
@@ -313,9 +340,12 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
     <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
       <span>${t('common.supply_amount')}</span><span>${Math.round(supplyTotal).toLocaleString()} ${t('common.currency')}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
       <span>${t('common.tax')}</span><span>${Math.round(vatTotal).toLocaleString()} ${t('common.currency')}</span>
     </div>
+    ${discountAmount > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+      <span>${discountLabel}</span><span>-${Math.round(discountAmount).toLocaleString()} ${t('common.currency')}</span>
+    </div>` : ''}
     <div class="total-row" style="display:flex;justify-content:space-between;align-items:center;">
       <span class="total-label">${t('common.total')}</span>
       <span class="total-value">${Math.round(receiptTotal).toLocaleString()} ${t('common.currency')}</span>
@@ -419,6 +449,12 @@ export default function ReceiptModal({ isOpen, onClose, orders, orderItems, prod
               <span className="text-xs text-gray-500">{t('common.tax')}</span>
               <span className="text-xs text-gray-700">{Math.round(vatTotal).toLocaleString()} {t('common.currency')}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">{discountLabel}</span>
+                <span className="text-xs text-gray-700">-{Math.round(discountAmount).toLocaleString()} {t('common.currency')}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-1 border-t border-gray-100">
               <span className="text-sm font-bold text-[#1F2937]">{t('common.total')}</span>
               <span className="text-lg font-bold text-blue-600">{Math.round(receiptTotal).toLocaleString()} {t('common.currency')}</span>

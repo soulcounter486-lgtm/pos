@@ -304,10 +304,14 @@ export default function KitchenOrders() {
     try {
       const supabase = getSupabase();
       const { error: updateError } = await supabase.from('orders').update({ status: 'completed' }).eq('id', orderId);
-      if (updateError) { alert(t('common.order_status_update_failed')); return; }
+      if (updateError) {
+        setError(t('common.order_status_update_failed'));
+        return;
+      }
+      setError('');
       fetchOrders();
     } catch (error) {
-      alert(t('common.order_completion_error'));
+      setError(t('common.order_completion_error'));
     }
   }
 
@@ -480,7 +484,7 @@ export default function KitchenOrders() {
                         </p>
                         <p className="hidden">📂 {item.category || t('common.uncategorized')}</p>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[#5f95ca] text-sm font-bold">× {item.quantity}{t('common.quantity_unit')}</p>
+                          <p className="text-[#5f95ca] text-sm font-bold">× {item.quantity}</p>
                         </div>
                         {/* Note display */}
                         {item.note && (
